@@ -59,12 +59,12 @@ export default function App() {
   // on phones. Desktop gets a hidden click-anywhere fallback below.
   void shake; // permission lifecycle is internal to the hook
 
-  // Hidden desktop tap-to-start. Only enabled on devices with a precise
-  // pointer (mouse/trackpad) — phone touch input doesn't qualify, so this
-  // doesn't interfere with the shake-only behavior on iOS or Android.
+  // Universal tap-to-start. Works on any device — desktop, iPhone, Android.
+  // Shake is still the primary trigger on phones, but tap is a guaranteed
+  // fallback if motion permission was denied, the sensor is unavailable,
+  // or the user just prefers tapping. The phase guard inside onShake means
+  // a tap during an active session is a no-op (the 60s remains sacred).
   useEffect(() => {
-    const isDesktop = window.matchMedia('(hover: hover) and (pointer: fine)').matches;
-    if (!isDesktop) return;
     const handler = () => {
       onShake({ intensity: 1.1, timestamp: performance.now() });
     };
