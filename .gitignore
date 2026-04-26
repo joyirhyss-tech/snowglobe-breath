@@ -7,3 +7,8 @@ dist
 *.log
 *.tsbuildinfo
 .playwright-mcp
+# Capacitor iOS build artifacts (the ios/ source tree IS committed,
+# but Pods/ and DerivedData/ are not)
+ios/App/Pods
+ios/App/build
+ios/DerivedData

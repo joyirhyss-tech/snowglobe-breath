@@ -1,7 +1,9 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { CONFIG } from '../config';
+import { isNative } from '../platform';
+import { subscribeNativeMotion } from '../platform/motion';
 
-// iOS 13+ exposes a requestPermission gate on DeviceMotionEvent.
+// iOS 13+ exposes a requestPermission gate on DeviceMotionEvent (web only).
 type DeviceMotionEventStatic = typeof DeviceMotionEvent & {
   requestPermission?: () => Promise<'granted' | 'denied'>;
 };
@@ -18,9 +20,17 @@ export type ShakeDetectionState = {
 // window. Any peak > threshold triggers (with debounce). The window approach
 // is more forgiving than instantaneous sampling — a quick wrist flick that
 // peaks for 50ms still registers reliably even if sampling misses the apex.
+//
+// Two execution paths:
+//   1. **Native iOS via Capacitor** — uses CoreMotion through the
+//      @capacitor/motion plugin. No permission prompt. More reliable than
+//      Safari's web DeviceMotion. Permission auto-marked 'not-required'.
+//   2. **Web (Safari/Chrome/Firefox)** — uses DeviceMotionEvent. iOS Safari
+//      requires a one-time tap to grant motion permission (handled by the
+//      silent document-level click listener below).
 export function useShakeDetection(onShake: (p: ShakePayload) => void) {
   const [state, setState] = useState<ShakeDetectionState>({
-    supported: typeof DeviceMotionEvent !== 'undefined',
+    supported: isNative || typeof DeviceMotionEvent !== 'undefined',
     permission: 'unknown',
     lastEvent: null,
   });
@@ -32,13 +42,11 @@ export function useShakeDetection(onShake: (p: ShakePayload) => void) {
   const onShakeRef = useRef(onShake);
   onShakeRef.current = onShake;
 
-  const handleMotion = useCallback((ev: DeviceMotionEvent) => {
+  // Shared sample handler — called by both native and web paths.
+  const handleSample = useCallback((acc: { x: number; y: number; z: number }) => {
     const now = performance.now();
     if (now - lastSampleAtRef.current < CONFIG.shake.sampleIntervalMs) return;
     lastSampleAtRef.current = now;
-
-    const acc = ev.accelerationIncludingGravity || ev.acceleration;
-    if (!acc || acc.x == null || acc.y == null || acc.z == null) return;
 
     const x = acc.x, y = acc.y, z = acc.z;
     const last = lastAccelRef.current;
@@ -48,8 +56,6 @@ export function useShakeDetection(onShake: (p: ShakePayload) => void) {
     const dx = x - last.x, dy = y - last.y, dz = z - last.z;
     const delta = Math.sqrt(dx * dx + dy * dy + dz * dz);
 
-    // Maintain a rolling peak across the window. If we get a stronger reading,
-    // adopt it; otherwise let the window expire.
     const peak = peakRef.current;
     if (delta > peak.value || now - peak.atMs > CONFIG.shake.peakWindowMs) {
       peakRef.current = { value: delta, atMs: now };
@@ -67,7 +73,19 @@ export function useShakeDetection(onShake: (p: ShakePayload) => void) {
     onShakeRef.current(payload);
   }, []);
 
+  // Web DeviceMotionEvent handler — extracts acceleration and forwards.
+  const handleMotion = useCallback((ev: DeviceMotionEvent) => {
+    const acc = ev.accelerationIncludingGravity || ev.acceleration;
+    if (!acc || acc.x == null || acc.y == null || acc.z == null) return;
+    handleSample({ x: acc.x, y: acc.y, z: acc.z });
+  }, [handleSample]);
+
   const requestPermission = useCallback(async () => {
+    // On native, no permission gate — return granted immediately.
+    if (isNative) {
+      setState((s) => ({ ...s, permission: 'granted' }));
+      return 'granted' as const;
+    }
     const DM = DeviceMotionEvent as DeviceMotionEventStatic;
     if (typeof DM === 'undefined') {
       setState((s) => ({ ...s, supported: false }));
@@ -83,32 +101,32 @@ export function useShakeDetection(onShake: (p: ShakePayload) => void) {
         return 'denied' as const;
       }
     }
-    // Android / desktop: no gate, permission is implicit.
     setState((s) => ({ ...s, permission: 'not-required' }));
     return 'granted' as const;
   }, []);
 
-  // On non-iOS platforms (Android / desktop), attach automatically — no permission gate.
+  // On non-iOS platforms (Android web, desktop, native) — no permission gate.
   useEffect(() => {
+    if (isNative) {
+      // Native: motion access is implicit (Capacitor plugin handles it).
+      setState((s) => ({ ...s, permission: 'not-required' }));
+      return;
+    }
     const DM = DeviceMotionEvent as DeviceMotionEventStatic;
     if (typeof DM !== 'undefined' && typeof DM.requestPermission !== 'function') {
       setState((s) => ({ ...s, permission: 'not-required' }));
     }
   }, []);
 
-  // iOS-only silent permission bootstrap. Apple requires a user gesture before
-  // it'll grant motion-sensor access. We attach a one-time global listener for
-  // ANY touchstart/click — the user's first stray tap on the screen requests
-  // permission silently. There's no visible UI. After grant, this listener
-  // detaches and shake takes over for all future sessions on this page load.
+  // iOS Safari only: silent permission bootstrap on first tap. Skipped on
+  // native (no prompt needed) and on Android (no prompt needed).
   useEffect(() => {
+    if (isNative) return;
     if (state.permission !== 'unknown') return;
     const DM = DeviceMotionEvent as DeviceMotionEventStatic;
     if (typeof DM === 'undefined' || typeof DM.requestPermission !== 'function') return;
 
-    const grant = () => {
-      void requestPermission();
-    };
+    const grant = () => { void requestPermission(); };
     document.addEventListener('touchstart', grant, { once: true, passive: true });
     document.addEventListener('click', grant, { once: true });
     return () => {
@@ -117,12 +135,23 @@ export function useShakeDetection(onShake: (p: ShakePayload) => void) {
     };
   }, [state.permission, requestPermission]);
 
-  // Attach listener once permission is granted or not required.
+  // Attach listener once permission is granted/not-required.
   useEffect(() => {
     if (state.permission !== 'granted' && state.permission !== 'not-required') return;
+
+    if (isNative) {
+      // Native: subscribe to CoreMotion via Capacitor plugin.
+      let unsubscribe: (() => void) | null = null;
+      void (async () => {
+        unsubscribe = await subscribeNativeMotion(handleSample);
+      })();
+      return () => { if (unsubscribe) unsubscribe(); };
+    }
+
+    // Web: subscribe to DeviceMotionEvent.
     window.addEventListener('devicemotion', handleMotion);
     return () => window.removeEventListener('devicemotion', handleMotion);
-  }, [state.permission, handleMotion]);
+  }, [state.permission, handleMotion, handleSample]);
 
   return { state, requestPermission };
 }

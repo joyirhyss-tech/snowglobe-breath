@@ -10,6 +10,8 @@ import { MODES, loadStoredMode, persistMode, type ModeId } from './modes';
 import { useLang } from './i18n';
 import { useAudio } from './audio/useAudio';
 import { loadAudioPref, persistAudioPref } from './audio/preference';
+import { tap as hapticTap, selection as hapticSelection } from './platform/haptics';
+import { getBreathAt } from './hooks/useBreathPhase';
 
 // Hush — v2 (App Store version, branch v2-hush).
 // Three modes (silver / gold / rainbow), each with its own breath pattern,
@@ -52,6 +54,31 @@ export default function App() {
     elapsedMs: sessionState.elapsedMs,
     phases: mode.breath,
   });
+
+  // Haptics: a single 'medium' tap when the session begins (the punctuation
+  // matching the visual shake-flash) and a 'selection' tick on each phase
+  // boundary so the user can feel the rhythm even with eyes closed.
+  // Phase boundary haptics are most useful in gold mode (box breathing) but
+  // work for all modes.
+  const lastHapticPhaseRef = useRef<number>(-1);
+  useEffect(() => {
+    if (sessionState.phase === 'active' && sessionState.elapsedMs < 50) {
+      void hapticTap('medium');
+      lastHapticPhaseRef.current = -1;
+    }
+  }, [sessionState.phase, sessionState.elapsedMs]);
+
+  useEffect(() => {
+    if (sessionState.phase !== 'active') {
+      lastHapticPhaseRef.current = -1;
+      return;
+    }
+    const breath = getBreathAt(sessionState.elapsedMs, mode.breath);
+    if (breath.phaseIndex !== lastHapticPhaseRef.current && lastHapticPhaseRef.current !== -1) {
+      void hapticSelection();
+    }
+    lastHapticPhaseRef.current = breath.phaseIndex;
+  }, [sessionState.phase, sessionState.elapsedMs, mode.breath]);
 
   // Shake/tap callback: starts a session if idle/done. No-op otherwise.
   const onShake = useCallback((p: ShakeImpulse) => {
