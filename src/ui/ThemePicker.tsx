@@ -1,69 +1,215 @@
-import { useState } from 'react';
-import { THEMES } from '../themes';
-import type { Theme } from '../themes/types';
+import { useEffect, useState } from 'react';
+import { MODE_LIST, type ModeId } from '../modes';
+import { setLang, useLang, t, SUPPORTED_LANGS, LANG_NAMES } from '../i18n';
 
-// Hidden dev picker. Long-press the top-left corner to reveal.
-// Lets you tune/swap themes live on device without rebuilding.
-export function ThemePicker({ current, onChange }: { current: Theme; onChange: (t: Theme) => void }) {
+// Settings panel for v2. Reachable via a small gear icon top-right.
+// Apple's "minimum functionality" guideline expects a settings screen, so
+// this is now a real visible UI element rather than the hidden dev panel.
+//
+// Audio toggle persists in localStorage. Mode and language live in their
+// own modules (modes.ts, i18n/index.ts) and persist independently.
+const AUDIO_PREF_KEY = 'hush.audio.enabled';
+
+function loadAudioPref(): boolean {
+  try {
+    const v = localStorage.getItem(AUDIO_PREF_KEY);
+    if (v === '0') return false;
+    if (v === '1') return true;
+  } catch {}
+  return true; // default ON — audio is the v2 marquee feature
+}
+
+function persistAudioPref(enabled: boolean): void {
+  try { localStorage.setItem(AUDIO_PREF_KEY, enabled ? '1' : '0'); } catch {}
+}
+
+type Props = {
+  currentModeId: ModeId;
+  onChangeMode: (id: ModeId) => void;
+};
+
+export function ThemePicker({ currentModeId, onChangeMode }: Props) {
+  const lang = useLang(); // re-render on language change
   const [open, setOpen] = useState(false);
-  const [pressStart, setPressStart] = useState(0);
+  const [audioOn, setAudioOnState] = useState<boolean>(() => loadAudioPref());
+
+  useEffect(() => { persistAudioPref(audioOn); }, [audioOn]);
 
   return (
     <>
-      <div
-        aria-hidden
-        onPointerDown={() => setPressStart(Date.now())}
-        onPointerUp={() => {
-          if (Date.now() - pressStart > 600) setOpen((v) => !v);
-        }}
-        onPointerLeave={() => setPressStart(0)}
+      {/* Subtle gear icon, top-right. Opacity low so it doesn't compete. */}
+      <button
+        aria-label={t('settings')}
+        onClick={(e) => { e.stopPropagation(); setOpen((v) => !v); }}
         style={{
           position: 'fixed',
-          left: 0,
-          top: 0,
-          width: 56,
-          height: 56,
+          top: 'env(safe-area-inset-top, 12px)',
+          right: '14px',
+          width: 32,
+          height: 32,
+          padding: 0,
+          background: 'transparent',
+          border: 'none',
+          cursor: 'pointer',
+          opacity: 0.32,
           zIndex: 100,
+          color: '#fff',
         }}
-      />
+      >
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" width="100%" height="100%">
+          <circle cx="12" cy="12" r="3" />
+          <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z" />
+        </svg>
+      </button>
+
       {open && (
         <div
+          onClick={(e) => {
+            // Click on the backdrop (anywhere outside the inner content)
+            // closes the panel. stopPropagation keeps the click out of the
+            // window-level start-session handler either way.
+            e.stopPropagation();
+            setOpen(false);
+          }}
           style={{
             position: 'fixed',
-            top: 12,
-            left: 12,
+            inset: 0,
+            background: 'rgba(0,0,0,0.7)',
+            backdropFilter: 'blur(12px)',
+            WebkitBackdropFilter: 'blur(12px)',
+            zIndex: 200,
             display: 'flex',
             flexDirection: 'column',
-            gap: 6,
-            background: 'rgba(0,0,0,0.55)',
-            border: '1px solid rgba(255,255,255,0.12)',
-            borderRadius: 10,
-            padding: 8,
-            zIndex: 101,
-            backdropFilter: 'blur(8px)',
-            WebkitBackdropFilter: 'blur(8px)',
+            justifyContent: 'center',
+            padding: '24px',
+            color: '#f4f7fc',
+            fontFamily: 'system-ui, -apple-system, sans-serif',
           }}
         >
-          {THEMES.map((t) => (
+          <div
+            onClick={(e) => e.stopPropagation()}
+            style={{ maxWidth: 380, margin: '0 auto', width: '100%' }}
+          >
+
+            {/* Mode */}
+            <Section label={t('mode')}>
+              {MODE_LIST.map((m) => (
+                <Option
+                  key={m.id}
+                  selected={currentModeId === m.id}
+                  onClick={() => onChangeMode(m.id)}
+                  title={t(m.labelKey)}
+                  subtitle={t(m.intentKey)}
+                />
+              ))}
+            </Section>
+
+            {/* Audio */}
+            <Section label={t('audio')}>
+              <Option
+                selected={audioOn}
+                onClick={() => setAudioOnState(true)}
+                title={t('audioOn')}
+              />
+              <Option
+                selected={!audioOn}
+                onClick={() => setAudioOnState(false)}
+                title={t('audioOff')}
+              />
+            </Section>
+
+            {/* Language */}
+            <Section label={t('language')}>
+              {SUPPORTED_LANGS.map((langOpt) => (
+                <Option
+                  key={langOpt}
+                  selected={langOpt === lang}
+                  onClick={() => setLang(langOpt)}
+                  title={LANG_NAMES[langOpt]}
+                />
+              ))}
+            </Section>
+
+            {/* Close */}
             <button
-              key={t.id}
-              onClick={() => onChange(t)}
+              onClick={() => setOpen(false)}
               style={{
-                background: current.id === t.id ? 'rgba(255,255,255,0.18)' : 'transparent',
-                border: '1px solid rgba(255,255,255,0.14)',
-                borderRadius: 6,
-                color: '#fff',
-                padding: '6px 10px',
-                fontSize: 12,
-                fontFamily: 'system-ui, sans-serif',
-                textAlign: 'left',
+                marginTop: 24,
+                width: '100%',
+                padding: '14px',
+                background: 'rgba(255,255,255,0.08)',
+                color: '#f4f7fc',
+                border: '1px solid rgba(255,255,255,0.18)',
+                borderRadius: 12,
+                fontSize: '0.95rem',
+                fontFamily: 'inherit',
+                cursor: 'pointer',
               }}
             >
-              {t.name}
+              {t('close')}
             </button>
-          ))}
+          </div>
         </div>
       )}
     </>
+  );
+}
+
+function Section({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <div style={{ marginBottom: 22 }}>
+      <div style={{
+        fontSize: '0.75rem',
+        textTransform: 'uppercase',
+        letterSpacing: '0.12em',
+        opacity: 0.5,
+        marginBottom: 8,
+      }}>
+        {label}
+      </div>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+        {children}
+      </div>
+    </div>
+  );
+}
+
+function Option({
+  selected,
+  onClick,
+  title,
+  subtitle,
+}: {
+  selected: boolean;
+  onClick: () => void;
+  title: string;
+  subtitle?: string;
+}) {
+  return (
+    <button
+      onClick={onClick}
+      style={{
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        padding: '12px 14px',
+        background: selected ? 'rgba(255,255,255,0.14)' : 'rgba(255,255,255,0.04)',
+        color: '#f4f7fc',
+        border: `1px solid ${selected ? 'rgba(255,255,255,0.4)' : 'rgba(255,255,255,0.1)'}`,
+        borderRadius: 10,
+        fontSize: '0.95rem',
+        fontFamily: 'inherit',
+        cursor: 'pointer',
+        textAlign: 'left',
+      }}
+    >
+      <div>
+        <div style={{ fontWeight: 500 }}>{title}</div>
+        {subtitle && (
+          <div style={{ fontSize: '0.78rem', opacity: 0.6, marginTop: 2 }}>{subtitle}</div>
+        )}
+      </div>
+      {selected && <span style={{ fontSize: '0.85rem', opacity: 0.85 }}>✓</span>}
+    </button>
   );
 }

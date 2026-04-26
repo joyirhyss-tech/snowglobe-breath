@@ -80,22 +80,9 @@ export const CONFIG = {
     shakeFlashStrength: 0.8,
   },
   breath: {
-    // 5 slower cycles × (5s inhale / 7s exhale) = 12s/cycle = 60s total.
-    // Slower than v9's 4/6 — gives the user more time inside each breath,
-    // reads as elegant rather than rushed. Exhale longer than inhale for
-    // parasympathetic activation (the calming nervous-system response).
-    phases: [
-      { label: 'inhale', ms: 5000 },
-      { label: 'exhale', ms: 7000 },   // cycle 1 (t=12)
-      { label: 'inhale', ms: 5000 },
-      { label: 'exhale', ms: 7000 },   // cycle 2 (t=24)
-      { label: 'inhale', ms: 5000 },
-      { label: 'exhale', ms: 7000 },   // cycle 3 (t=36)
-      { label: 'inhale', ms: 5000 },
-      { label: 'exhale', ms: 7000 },   // cycle 4 (t=48)
-      { label: 'inhale', ms: 5000 },
-      { label: 'exhale', ms: 7000 },   // cycle 5 (t=60) — last exhale ends as glitter settles
-    ] as const,
+    // Phase patterns now live in src/modes.ts (each of silver/gold/rainbow
+    // has its own). Cross-mode visual styling stays here.
+
     // Crossfade window: previous word fades out while new word fades in over
     // this duration centered at the phase boundary. 800ms reads as a smooth
     // breath transition, never as a hard swap.
@@ -116,4 +103,4 @@ export const CONFIG = {
   },
 } as const;
 
-export type BreathLabel = 'inhale' | 'exhale';
+// BreathLabel moved to src/modes.ts (now includes 'hold' for box breathing).

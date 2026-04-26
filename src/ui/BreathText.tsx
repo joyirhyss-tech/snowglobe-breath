@@ -1,6 +1,8 @@
 import { CONFIG } from '../config';
 import { getBreathAt } from '../hooks/useBreathPhase';
 import type { Theme } from '../themes/types';
+import type { BreathPhase, BreathLabel } from '../modes';
+import { t } from '../i18n';
 
 const MIN_SCALE = 0.78;
 const MAX_SCALE = 1.4;
@@ -12,6 +14,23 @@ function easeInOutCubic(t: number) {
   return t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
 }
 
+// Each phase has an associated scale. Inhale ends at MAX, exhale ends at MIN,
+// hold sits at whichever the previous phase ended on (lungs full or empty).
+function scaleForPhase(label: BreathLabel, progress: number, prevLabel: BreathLabel | null): number {
+  const eased = easeInOutSine(progress);
+  if (label === 'inhale') return MIN_SCALE + (MAX_SCALE - MIN_SCALE) * eased;
+  if (label === 'exhale') return MAX_SCALE - (MAX_SCALE - MIN_SCALE) * eased;
+  // hold — sits at the previous label's resting scale
+  return prevLabel === 'inhale' ? MAX_SCALE : MIN_SCALE;
+}
+
+// Resolve the localized word for a phase label.
+function wordFor(label: BreathLabel): string {
+  if (label === 'inhale') return t('inhale');
+  if (label === 'exhale') return t('exhale');
+  return t('hold');
+}
+
 type WordProps = {
   word: string;
   scale: number;
@@ -19,7 +38,6 @@ type WordProps = {
   theme: Theme;
 };
 
-// Single word renderer — both current and previous label use this.
 function BreathWord({ word, scale, opacity, theme }: WordProps) {
   if (opacity <= 0.001) return null;
   return (
@@ -52,61 +70,58 @@ function BreathWord({ word, scale, opacity, theme }: WordProps) {
 
 // True crossfade: at every phase boundary, render BOTH the previous and
 // the current label simultaneously. Previous fades out; current fades in;
-// they cross at 50% over CROSSFADE_MS centered on the boundary. No gap,
-// no abrupt swap. Scale is continuous because phases meet at the same scale.
+// they cross at 50% over crossfadeMs centered on the boundary. No gap.
 //
 // Pure derivation — no state, no useEffect — so React rendering can't
-// introduce visual stutter at phase boundaries.
+// introduce visual stutter at phase boundaries. Phases array is supplied
+// by the active mode (silver / gold / rainbow each have their own pattern).
 export function BreathText({
   elapsedMs,
   active,
   fadeOutProgress,
   theme,
+  phases,
 }: {
   elapsedMs: number;
   active: boolean;
   fadeOutProgress: number;
   theme: Theme;
+  phases: ReadonlyArray<BreathPhase>;
 }) {
   if (!active) return null;
 
-  const breath = getBreathAt(elapsedMs);
-  const phase = CONFIG.breath.phases[breath.phaseIndex];
+  const breath = getBreathAt(elapsedMs, phases);
+  const phase = phases[breath.phaseIndex];
   const phaseMs = phase.ms;
   const elapsedInPhase = breath.phaseProgress * phaseMs;
   const remainingInPhase = phaseMs - elapsedInPhase;
   const cf = CONFIG.breath.crossfadeMs;
   const [, peakOpacity] = CONFIG.breath.opacityRange;
 
-  // Continuous scale: inhale grows, exhale shrinks, both meet at the same
-  // value at the phase boundary so the visual is uninterrupted.
-  const eased = easeInOutSine(breath.phaseProgress);
-  const scale =
-    breath.label === 'inhale'
-      ? MIN_SCALE + (MAX_SCALE - MIN_SCALE) * eased
-      : MAX_SCALE - (MAX_SCALE - MIN_SCALE) * eased;
+  // Continuous scale across phases. Hold sits at the prior phase's resting
+  // scale so motion is smooth: inhale rises to MAX → hold sits at MAX →
+  // exhale falls from MAX to MIN → hold sits at MIN → inhale rises again.
+  const prevLabel: BreathLabel | null = breath.phaseIndex > 0 ? phases[breath.phaseIndex - 1].label : null;
+  const scale = scaleForPhase(breath.label, breath.phaseProgress, prevLabel);
 
-  // Current word opacity: fade in over crossfade, hold, then start fading
-  // out as the next phase begins (handled by the next phase rendering us as
-  // "previous"). At session start, the very first word fades in from 0.
+  // Current word opacity: fade in over crossfade, hold, then crossfade out
+  // when the next phase starts (rendered as "previous" in that phase).
   let currentOpacity = peakOpacity;
   if (elapsedInPhase < cf) {
     currentOpacity = peakOpacity * easeInOutCubic(elapsedInPhase / cf);
   }
 
-  // Previous word: only visible during the crossfade window of a new phase.
-  // Pull its label from the prior phase if it exists.
-  let previousLabel: string | null = null;
+  // Previous word: visible during the crossfade window of a new phase.
+  let previousWord: string | null = null;
   let previousOpacity = 0;
   if (elapsedInPhase < cf && breath.phaseIndex > 0) {
-    previousLabel = CONFIG.breath.phases[breath.phaseIndex - 1].label;
+    previousWord = wordFor(phases[breath.phaseIndex - 1].label);
     previousOpacity = peakOpacity * (1 - easeInOutCubic(elapsedInPhase / cf));
   }
 
-  // Final phase: fade out as session ends. The fadeOutProgress drives this.
+  // Final phase: gentle tail-fade as session ends.
   const sessionFade = 1 - fadeOutProgress;
-  // Also: in the very last cf window, fade out instead of holding (no next phase to crossfade to).
-  const isLastPhase = breath.phaseIndex === CONFIG.breath.phases.length - 1;
+  const isLastPhase = breath.phaseIndex === phases.length - 1;
   if (isLastPhase && remainingInPhase < cf) {
     const tailFade = easeInOutCubic(remainingInPhase / cf);
     currentOpacity *= tailFade;
@@ -114,16 +129,16 @@ export function BreathText({
 
   return (
     <>
-      {previousLabel && (
+      {previousWord && (
         <BreathWord
-          word={previousLabel}
+          word={previousWord}
           scale={scale}
           opacity={previousOpacity * sessionFade}
           theme={theme}
         />
       )}
       <BreathWord
-        word={breath.label}
+        word={wordFor(breath.label)}
         scale={scale}
         opacity={currentOpacity * sessionFade}
         theme={theme}

@@ -5,47 +5,49 @@ import { QuoteReveal } from './ui/QuoteReveal';
 import { ThemePicker } from './ui/ThemePicker';
 import { useSessionTimer } from './hooks/useSessionTimer';
 import { useShakeDetection } from './hooks/useShakeDetection';
-import { pickTheme, type Theme } from './themes';
 import { pickRandomQuote, type Quote } from './quotes';
+import { MODES, loadStoredMode, persistMode, type ModeId } from './modes';
+import { useLang } from './i18n';
 
-// This is a breath-practice tool, not a toy. Once a session begins it must
-// run the full 60 seconds — shake during active is intentionally a no-op.
+// Hush — v2 (App Store version, branch v2-hush).
+// Three modes (silver / gold / rainbow), each with its own breath pattern,
+// audio palette, and glitter behavior. Web v1 stays frozen on `main`.
+//
+// Constraint: once a session begins, the full duration runs.
+// Shake/tap during active/ending phases is a no-op.
 
 type ShakeImpulse = { intensity: number; timestamp: number };
 
 export default function App() {
+  // Re-render when user changes language so localized strings refresh.
+  useLang();
+
   const timer = useSessionTimer();
   const { state: sessionState, start, reset } = timer;
-  const [theme, setTheme] = useState<Theme>(() => pickTheme(true));
+
+  // Active mode: persisted across launches. Default = silver (calmest entry).
+  const [modeId, setModeId] = useState<ModeId>(() => loadStoredMode());
+  const mode = MODES[modeId];
+
   const [shakeImpulse, setShakeImpulse] = useState<ShakeImpulse | null>(null);
   const [currentQuote, setCurrentQuote] = useState<Quote | null>(null);
-  const lastThemeIdRef = useRef(theme.id);
-  const isFirstRef = useRef(true);
   const sessionPhaseRef = useRef(sessionState.phase);
   sessionPhaseRef.current = sessionState.phase;
 
-  const pickAndSetNextTheme = useCallback(() => {
-    const next = pickTheme(isFirstRef.current, lastThemeIdRef.current);
-    isFirstRef.current = false;
-    lastThemeIdRef.current = next.id;
-    setTheme(next);
-    return next;
-  }, []);
+  // Persist mode whenever it changes.
+  useEffect(() => { persistMode(modeId); }, [modeId]);
 
-  // Shake callback: ONLY starts a session when none is running. While a session
-  // is active or ending, shakes are ignored — this is a breath practice and the
-  // full 60 seconds is sacred. The user can re-shake to start a fresh round
-  // only after the current one completes.
+  // Shake/tap callback: starts a session if idle/done. No-op otherwise.
   const onShake = useCallback((p: ShakeImpulse) => {
     const phase = sessionPhaseRef.current;
     if (phase !== 'idle' && phase !== 'done') return;
     setShakeImpulse(p);
-    pickAndSetNextTheme();
     setCurrentQuote(pickRandomQuote());
     start();
-  }, [start, pickAndSetNextTheme]);
+  }, [start]);
 
   const shake = useShakeDetection(onShake);
+  void shake;
 
   useEffect(() => {
     if (sessionState.phase === 'done') {
@@ -54,16 +56,8 @@ export default function App() {
     }
   }, [sessionState.phase, reset]);
 
-  // iOS motion-permission bootstrap is silent — see useShakeDetection. We
-  // don't render any tap target here. Shake is the only session trigger
-  // on phones. Desktop gets a hidden click-anywhere fallback below.
-  void shake; // permission lifecycle is internal to the hook
-
-  // Universal tap-to-start. Works on any device — desktop, iPhone, Android.
-  // Shake is still the primary trigger on phones, but tap is a guaranteed
-  // fallback if motion permission was denied, the sensor is unavailable,
-  // or the user just prefers tapping. The phase guard inside onShake means
-  // a tap during an active session is a no-op (the 60s remains sacred).
+  // Universal tap-to-start. Works on every device. Phase guard inside
+  // onShake means a tap during active is a no-op (the session is sacred).
   useEffect(() => {
     const handler = () => {
       onShake({ intensity: 1.1, timestamp: performance.now() });
@@ -77,7 +71,7 @@ export default function App() {
   return (
     <div style={{ position: 'fixed', inset: 0 }}>
       <Scene
-        theme={theme}
+        theme={mode.theme}
         shakeImpulse={shakeImpulse}
         elapsedMs={sessionState.elapsedMs}
         sessionProgress={sessionState.progress}
@@ -89,17 +83,21 @@ export default function App() {
         elapsedMs={sessionState.elapsedMs}
         active={sessionState.phase === 'active'}
         fadeOutProgress={sessionState.fadeOutProgress}
-        theme={theme}
+        theme={mode.theme}
+        phases={mode.breath}
       />
 
       <QuoteReveal
         quote={currentQuote}
         visible={sessionState.phase === 'ending'}
         fadeOutProgress={sessionState.fadeOutProgress}
-        theme={theme}
+        theme={mode.theme}
       />
 
-      <ThemePicker current={theme} onChange={setTheme} />
+      <ThemePicker
+        currentModeId={modeId}
+        onChangeMode={setModeId}
+      />
     </div>
   );
 }
