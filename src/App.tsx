@@ -12,6 +12,7 @@ import { useAudio } from './audio/useAudio';
 import { loadAudioPref, persistAudioPref } from './audio/preference';
 import { tap as hapticTap, selection as hapticSelection } from './platform/haptics';
 import { getBreathAt } from './hooks/useBreathPhase';
+import { loadDisplayPref, persistDisplayPref, type DisplayMode } from './displayPref';
 
 // Hush — v2 (App Store version, branch v2-hush).
 // Three modes (silver / gold / rainbow), each with its own breath pattern,
@@ -35,15 +36,18 @@ export default function App() {
 
   // Audio enabled (default ON), persisted across launches.
   const [audioEnabled, setAudioEnabledState] = useState<boolean>(() => loadAudioPref());
+  // Display mode for the breath cue (words / countdown / silent).
+  const [displayMode, setDisplayModeState] = useState<DisplayMode>(() => loadDisplayPref());
 
   const [shakeImpulse, setShakeImpulse] = useState<ShakeImpulse | null>(null);
   const [currentQuote, setCurrentQuote] = useState<Quote | null>(null);
   const sessionPhaseRef = useRef(sessionState.phase);
   sessionPhaseRef.current = sessionState.phase;
 
-  // Persist mode and audio preference whenever they change.
+  // Persist preferences whenever they change.
   useEffect(() => { persistMode(modeId); }, [modeId]);
   useEffect(() => { persistAudioPref(audioEnabled); }, [audioEnabled]);
+  useEffect(() => { persistDisplayPref(displayMode); }, [displayMode]);
 
   // Drive the audio engine. Engine starts on session 'active' (which only
   // happens after a real user gesture — tap or shake — satisfying iOS).
@@ -120,6 +124,7 @@ export default function App() {
         sessionProgress={sessionState.progress}
         active={active}
         fadeOutProgress={sessionState.fadeOutProgress}
+        physics={mode.physics}
       />
 
       <BreathText
@@ -128,6 +133,8 @@ export default function App() {
         fadeOutProgress={sessionState.fadeOutProgress}
         theme={mode.theme}
         phases={mode.breath}
+        displayMode={displayMode}
+        totalDurationMs={mode.durationMs}
       />
 
       <QuoteReveal
@@ -142,6 +149,8 @@ export default function App() {
         onChangeMode={setModeId}
         audioEnabled={audioEnabled}
         onChangeAudioEnabled={setAudioEnabledState}
+        displayMode={displayMode}
+        onChangeDisplayMode={setDisplayModeState}
       />
     </div>
   );

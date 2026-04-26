@@ -3,6 +3,7 @@ import { useFrame, useThree } from '@react-three/fiber';
 import * as THREE from 'three';
 import { CONFIG } from '../config';
 import type { Theme } from '../themes/types';
+import type { ParticlePhysics } from '../modes';
 
 type Props = {
   theme: Theme;
@@ -11,6 +12,9 @@ type Props = {
   sessionProgress: number;
   active: boolean;
   fadeOutProgress: number;
+  // Per-mode physics overrides (multipliers on shared CONFIG.particles).
+  // Empty object = silver baseline. Gold and Rainbow override.
+  physics?: ParticlePhysics;
 };
 
 // ── Noise helpers ────────────────────────────────────────────────────────
@@ -107,7 +111,7 @@ function makeSparkleTexture(size = 128): THREE.Texture {
   return tex;
 }
 
-// ── Custom shader: per-particle twinkle + settled-shimmer suppression ────
+// ── Custom shader: per-particle twinkle + optional hue shift (rainbow) ──
 const VERT = /* glsl */ `
   attribute float aPhase;
   attribute float aSpeed;
@@ -122,10 +126,30 @@ const VERT = /* glsl */ `
   uniform float uTwinkleSettled;
   uniform float uTwinkleFloor;
   uniform float uOpacity;
+  uniform float uHueShift;            // 0 = off, 1 = on (rainbow mode)
   varying float vTwinkle;
   varying float vRot;
   varying vec3  vColor;
   varying float vOpacity;
+
+  // Proper YIQ-space hue rotation. Cleaner color than RGB-axis rodrigues.
+  vec3 hueRotate(vec3 c, float angle) {
+    const mat3 toYIQ = mat3(
+      0.299,  0.587,  0.114,
+      0.596, -0.274, -0.322,
+      0.211, -0.523,  0.311
+    );
+    const mat3 toRGB = mat3(
+      1.0,  0.956,  0.621,
+      1.0, -0.272, -0.647,
+      1.0, -1.106,  1.703
+    );
+    vec3 yiq = toYIQ * c;
+    float cs = cos(angle);
+    float sn = sin(angle);
+    vec2 rotIQ = vec2(yiq.y * cs - yiq.z * sn, yiq.y * sn + yiq.z * cs);
+    return toRGB * vec3(yiq.x, rotIQ);
+  }
 
   void main() {
     vec4 mv = modelViewMatrix * vec4(position, 1.0);
@@ -136,21 +160,26 @@ const VERT = /* glsl */ `
     float twinkleSpeed = mix(aSpeed, uTwinkleSettled, settled);
 
     // Composite twinkle: gentle sine baseline + occasional subtle catch peaks.
-    // Tuned for "calming gentle shimmer" — not aggressive blinking. Catches
-    // are infrequent and small; the persistent baseline does most of the work.
     float base = 0.45 + 0.55 * sin(uTime * twinkleSpeed + aPhase);
     float catch_ = pow(max(sin(uTime * twinkleSpeed * 2.4 + aPhase * 2.1), 0.0), 14.0);
     float tw = base * 0.55 + catch_ * 0.45;
-    tw = max(uTwinkleFloor, min(tw, 1.0));      // clamped — no overshoot, no bloom blowout
-    // During shake flash: extra brightness, suppressed twinkle (motion blur).
+    tw = max(uTwinkleFloor, min(tw, 1.0));
     tw = mix(tw, 1.0, uShakeFlash * 0.6);
 
     vTwinkle = tw;
     vRot = aRot + uTime * 0.4;
-    vColor = aColor;
     vOpacity = uOpacity;
 
-    // Size variation is subtle — no big pulses, just gentle breathing.
+    // Hue shift for rainbow mode: each particle's color cycles slowly over
+    // time, with a per-particle phase offset so they don't all change in
+    // unison. Effect = "stained-glass dancing" without any cost when off.
+    vec3 col = aColor;
+    if (uHueShift > 0.5) {
+      float angle = uTime * 0.22 + aPhase * 0.4;
+      col = hueRotate(col, angle);
+    }
+    vColor = col;
+
     float sizeMul = 1.0 + 0.25 * tw + uShakeFlash * 0.3;
     gl_PointSize = aSize * sizeMul * uPixelRatio;
   }
@@ -175,9 +204,19 @@ const FRAG = /* glsl */ `
   }
 `;
 
-export function ParticleField({ theme, shakeImpulse, elapsedMs, sessionProgress, active, fadeOutProgress }: Props) {
-  const count = theme.particles.count ?? CONFIG.particles.count;
-  const sizeMul = theme.particles.sizeMultiplier ?? 1;
+export function ParticleField({ theme, shakeImpulse, elapsedMs, sessionProgress, active, fadeOutProgress, physics }: Props) {
+  const phys = physics ?? {};
+  // Per-mode multipliers. 1.0 = silver baseline.
+  const sinkMul = phys.sinkRateMul ?? 1;
+  const curlMul = phys.curlStrengthMul ?? 1;
+  const physSizeMul = phys.sizeMul ?? 1;
+  const twinkleMul = phys.twinkleSpeedMul ?? 1;
+  const countMul = phys.countMul ?? 1;
+  const hueShift = phys.hueShift ?? false;
+
+  const baseCount = theme.particles.count ?? CONFIG.particles.count;
+  const count = Math.round(baseCount * countMul);
+  const sizeMul = (theme.particles.sizeMultiplier ?? 1) * physSizeMul;
   const emissive = theme.particles.emissive ?? 0.9;
   const { viewport, size: screen } = useThree();
   const pointsRef = useRef<THREE.Points>(null);
@@ -239,13 +278,17 @@ export function ParticleField({ theme, shakeImpulse, elapsedMs, sessionProgress,
       colors[i * 3 + 2] = col.b;
 
       phases[i] = Math.random() * Math.PI * 2;
-      speeds[i] = twMin + Math.random() * (twMax - twMin);
+      // Per-particle twinkle speed — multiplied by mode override (rainbow:
+      // faster sparkle; gold: slower).
+      speeds[i] = (twMin + Math.random() * (twMax - twMin)) * twinkleMul;
       rotations[i] = Math.random() * Math.PI * 2;
       pixelSizes[i] = basePixel * ((sMin + Math.random() * (sMax - sMin)) / sMax);
-      sinkRates[i] = sampleLogNormal(P.sinkRateMean, P.sinkRateSigma, skMin, skMax);
+      // Per-particle sink rate — multiplied by mode override (rainbow:
+      // slower fall, particles linger; gold: also slower for weight).
+      sinkRates[i] = sampleLogNormal(P.sinkRateMean, P.sinkRateSigma, skMin, skMax) * sinkMul;
     }
     return { positions, velocities, colors, phases, speeds, rotations, pixelSizes, sinkRates, pileColFractions };
-  }, [count, theme, viewport.width, viewport.height, sizeMul, screen.width, screen.height]);
+  }, [count, theme, viewport.width, viewport.height, sizeMul, screen.width, screen.height, twinkleMul, sinkMul]);
 
   // Shake kick: inject velocity from where particles currently rest. No
   // teleport, no redistribution. Particles rise out of the pile and spread
@@ -308,7 +351,7 @@ export function ParticleField({ theme, shakeImpulse, elapsedMs, sessionProgress,
     // Turbulence only flows during an active session. When idle (no shake yet)
     // or after the session ends, curl is zero so the pile sits perfectly still.
     const turb = active ? Math.exp(-elapsedSec / P.turbulenceDecayTau) : 0;
-    const curlMag = P.turbulenceStrength * turb;
+    const curlMag = P.turbulenceStrength * turb * curlMul;
 
     // Late-session sink boost. After sinkBoostStartSec, ramp effective sink
     // up to sinkBoostMaxMul so any lingering fines definitely reach the pile
@@ -424,7 +467,8 @@ export function ParticleField({ theme, shakeImpulse, elapsedMs, sessionProgress,
     uTwinkleSettled: { value: CONFIG.particles.twinkleSpeedSettled },
     uTwinkleFloor: { value: CONFIG.particles.twinkleBaseFloor },
     uOpacity: { value: emissive },
-  }), [sprite, viewport.height, emissive]);
+    uHueShift: { value: hueShift ? 1 : 0 },
+  }), [sprite, viewport.height, emissive, hueShift]);
 
   return (
     <points ref={pointsRef}>

@@ -23,6 +23,19 @@ export type BreathPhase = {
   ms: number;
 };
 
+// Per-mode particle physics overrides. Each value is a multiplier on the
+// global CONFIG.particles default. 1.0 = identical to silver baseline. Modes
+// distinguish themselves by tuning these — gold is heavier/slower, rainbow
+// is lighter/more dynamic.
+export type ParticlePhysics = {
+  sinkRateMul?: number;       // <1 = particles linger longer (slower fall)
+  curlStrengthMul?: number;   // >1 = more swirl
+  sizeMul?: number;            // particle size multiplier
+  twinkleSpeedMul?: number;   // >1 = faster sparkle / catches
+  countMul?: number;           // density (rainbow can run more particles)
+  hueShift?: boolean;          // shader cycles each particle's hue over time
+};
+
 export type AudioPalette = {
   // Synthesized drone foundation (Tone.js or Web Audio).
   droneFundamentalHz: number;       // base tone, e.g. 110 (A2)
@@ -50,6 +63,8 @@ export type ModeSpec = {
   breath: BreathPhase[];
   theme: Theme;
   audio: AudioPalette;
+  // Particle behavior overrides. Empty/omitted = silver baseline.
+  physics?: ParticlePhysics;
   // Closing behavior.
   closing: 'quote' | 'poem-audio';
 };
@@ -81,6 +96,8 @@ const SILVER: ModeSpec = {
     exhaleSampleId: null,
     closingNarrationIds: [],
   },
+  // Silver = baseline. No physics overrides.
+  physics: {},
   closing: 'quote',
 };
 
@@ -112,6 +129,13 @@ const GOLD: ModeSpec = {
     holdSampleId: 'singing-bowl',   // soft bowl strike at hold transitions
     exhaleSampleId: null,
     closingNarrationIds: [],
+  },
+  // Gold: heavier, slower, more grounded. Particles fall with intention.
+  physics: {
+    sinkRateMul: 0.85,
+    curlStrengthMul: 0.7,
+    sizeMul: 1.18,
+    twinkleSpeedMul: 0.7,
   },
   closing: 'quote',
 };
@@ -148,6 +172,16 @@ const RAINBOW: ModeSpec = {
       // Will be populated with the user's recorded poems.
       // For now, closing falls back to visual quote until audio is recorded.
     ],
+  },
+  // Rainbow: lighter, more dynamic, more particles, hue cycles over time
+  // — the wow-factor mode.
+  physics: {
+    sinkRateMul: 0.7,
+    curlStrengthMul: 1.4,
+    sizeMul: 0.88,
+    twinkleSpeedMul: 1.3,
+    countMul: 1.15,
+    hueShift: true,
   },
   closing: 'poem-audio',
 };

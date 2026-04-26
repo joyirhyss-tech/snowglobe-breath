@@ -8,7 +8,7 @@ export const en: Translations = {
   modeSilver: 'Silver',
   modeSilverIntent: 'Daily reset',
   modeGold: 'Gold',
-  modeGoldIntent: 'Grounding focus',
+  modeGoldIntent: 'Grounded focus',
   modeRainbow: 'Rainbow',
   modeRainbowIntent: 'Joy and opening',
   settings: 'Settings',
@@ -18,4 +18,8 @@ export const en: Translations = {
   audioOff: 'Off',
   language: 'Language',
   close: 'Close',
+  display: 'Display',
+  displayWords: 'Words',
+  displayCountdown: 'Countdown',
+  displaySilent: 'Silent',
 };

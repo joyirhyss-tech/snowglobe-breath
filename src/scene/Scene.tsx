@@ -4,6 +4,7 @@ import { Background } from './Background';
 import { ParticleField } from './ParticleField';
 import { CONFIG } from '../config';
 import type { Theme } from '../themes/types';
+import type { ParticlePhysics } from '../modes';
 
 type Props = {
   theme: Theme;
@@ -12,6 +13,7 @@ type Props = {
   sessionProgress: number;
   active: boolean;
   fadeOutProgress: number;
+  physics?: ParticlePhysics;
 };
 
 // r3f Canvas owns the WebGL context. The orthographic camera makes world units
@@ -36,6 +38,7 @@ export function Scene(props: Props) {
         sessionProgress={props.sessionProgress}
         active={props.active}
         fadeOutProgress={props.fadeOutProgress}
+        physics={props.physics}
       />
       <EffectComposer>
         <Bloom

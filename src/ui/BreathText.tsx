@@ -3,6 +3,7 @@ import { getBreathAt } from '../hooks/useBreathPhase';
 import type { Theme } from '../themes/types';
 import type { BreathPhase, BreathLabel } from '../modes';
 import { t } from '../i18n';
+import type { DisplayMode } from '../displayPref';
 
 const MIN_SCALE = 0.78;
 const MAX_SCALE = 1.4;
@@ -81,15 +82,40 @@ export function BreathText({
   fadeOutProgress,
   theme,
   phases,
+  displayMode,
+  totalDurationMs,
 }: {
   elapsedMs: number;
   active: boolean;
   fadeOutProgress: number;
   theme: Theme;
   phases: ReadonlyArray<BreathPhase>;
+  displayMode: DisplayMode;
+  totalDurationMs: number;
 }) {
   if (!active) return null;
+  // Silent mode renders nothing — visuals + audio + haptics carry the practice.
+  if (displayMode === 'silent') return null;
 
+  // Countdown mode: show MM:SS time remaining, scale-pulsed gently with breath
+  // so it still feels alive but the user doesn't track words.
+  if (displayMode === 'countdown') {
+    const remainingSec = Math.max(0, Math.ceil((totalDurationMs - elapsedMs) / 1000));
+    const mm = Math.floor(remainingSec / 60);
+    const ss = remainingSec % 60;
+    const text = `${mm}:${ss.toString().padStart(2, '0')}`;
+    // Subtle breath-scale on the clock so it pulses with the rhythm.
+    const breath = getBreathAt(elapsedMs, phases);
+    const prevLabel: BreathLabel | null = breath.phaseIndex > 0 ? phases[breath.phaseIndex - 1].label : null;
+    const scale = scaleForPhase(breath.label, breath.phaseProgress, prevLabel);
+    const [, peakOp] = CONFIG.breath.opacityRange;
+    const opacity = peakOp * (1 - fadeOutProgress);
+    return (
+      <BreathWord word={text} scale={0.85 + (scale - 1) * 0.15} opacity={opacity} theme={theme} />
+    );
+  }
+
+  // Words mode (default) — original cue rendering.
   const breath = getBreathAt(elapsedMs, phases);
   const phase = phases[breath.phaseIndex];
   const phaseMs = phase.ms;

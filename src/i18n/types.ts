@@ -34,6 +34,11 @@ export type StringKey =
   | 'audioOn'
   | 'audioOff'
   | 'language'
-  | 'close';
+  | 'close'
+  // Display options — what to show as the breath cue
+  | 'display'
+  | 'displayWords'
+  | 'displayCountdown'
+  | 'displaySilent';
 
 export type Translations = Record<StringKey, string>;

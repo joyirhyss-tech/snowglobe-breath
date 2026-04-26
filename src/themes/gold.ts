@@ -1,28 +1,37 @@
 import type { Theme } from './types';
 
+// Gold — warm gold/amber gems against deep COOL water.
+// Color principle: classic gold-on-teal jewelry pairing. Cool teal sets off
+// warm gold the way nothing else does — used by Cartier, Tiffany, museum
+// goldsmith displays. Cool depth makes gold read as luminous, never muddy.
+//
+// Bodoni Moda italic for breath cues — high-contrast, ornate, premium. Pairs
+// with the heavier physics (slower fall, larger particles) for a grounded,
+// substantial feel.
 export const gold: Theme = {
   id: 'gold',
   name: 'Gold Shimmer',
   background: {
-    innerColor: '#2a1d0c',
-    outerColor: '#0a0604',
-    causticColor: '#ffd88a',
-    causticIntensity: 0.1,
+    innerColor: '#0a2538',     // deep teal — the goldsmith's velvet
+    outerColor: '#020812',     // sapphire-black at the rim
+    causticColor: '#6ad5e8',
+    causticIntensity: 0.38,
   },
   particles: {
-    palette: ['#fff4c2', '#ffd56a', '#d9a23a', '#8a5a12'],
+    palette: ['#ffefb0', '#ffd56a', '#e8b34a', '#c08820', '#a06820'],
     shape: 'star',
-    emissive: 1.1,
-    sizeMultiplier: 1.1,
+    emissive: 1.25,
+    sizeMultiplier: 1.0,
   },
   vessel: {
-    rimColor: '#ffe4a8',
-    innerTint: '#6a4410',
-    innerTintAlpha: 0.1,
+    rimColor: '#d4a868',
+    innerTint: '#3d2810',
+    innerTintAlpha: 0.04,
   },
   text: {
     color: '#fff4c2',
-    fontFamily: '"Cormorant Garamond", "Caveat", serif',
+    // Bodoni Moda italic — high-contrast, premium, substantial
+    fontFamily: '"Bodoni Moda", "Cormorant Garamond", serif',
   },
-  postfx: { bloomIntensity: 0.85 },
+  postfx: { bloomIntensity: 0.65 },
 };
