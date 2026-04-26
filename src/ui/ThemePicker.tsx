@@ -1,39 +1,20 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { MODE_LIST, type ModeId } from '../modes';
 import { setLang, useLang, t, SUPPORTED_LANGS, LANG_NAMES } from '../i18n';
 
 // Settings panel for v2. Reachable via a small gear icon top-right.
-// Apple's "minimum functionality" guideline expects a settings screen, so
-// this is now a real visible UI element rather than the hidden dev panel.
-//
-// Audio toggle persists in localStorage. Mode and language live in their
-// own modules (modes.ts, i18n/index.ts) and persist independently.
-const AUDIO_PREF_KEY = 'hush.audio.enabled';
-
-function loadAudioPref(): boolean {
-  try {
-    const v = localStorage.getItem(AUDIO_PREF_KEY);
-    if (v === '0') return false;
-    if (v === '1') return true;
-  } catch {}
-  return true; // default ON — audio is the v2 marquee feature
-}
-
-function persistAudioPref(enabled: boolean): void {
-  try { localStorage.setItem(AUDIO_PREF_KEY, enabled ? '1' : '0'); } catch {}
-}
-
+// Audio-enabled state is owned by App.tsx (so the audio engine can react)
+// and threaded through this component as a controlled prop.
 type Props = {
   currentModeId: ModeId;
   onChangeMode: (id: ModeId) => void;
+  audioEnabled: boolean;
+  onChangeAudioEnabled: (enabled: boolean) => void;
 };
 
-export function ThemePicker({ currentModeId, onChangeMode }: Props) {
+export function ThemePicker({ currentModeId, onChangeMode, audioEnabled, onChangeAudioEnabled }: Props) {
   const lang = useLang(); // re-render on language change
   const [open, setOpen] = useState(false);
-  const [audioOn, setAudioOnState] = useState<boolean>(() => loadAudioPref());
-
-  useEffect(() => { persistAudioPref(audioOn); }, [audioOn]);
 
   return (
     <>
@@ -107,13 +88,13 @@ export function ThemePicker({ currentModeId, onChangeMode }: Props) {
             {/* Audio */}
             <Section label={t('audio')}>
               <Option
-                selected={audioOn}
-                onClick={() => setAudioOnState(true)}
+                selected={audioEnabled}
+                onClick={() => onChangeAudioEnabled(true)}
                 title={t('audioOn')}
               />
               <Option
-                selected={!audioOn}
-                onClick={() => setAudioOnState(false)}
+                selected={!audioEnabled}
+                onClick={() => onChangeAudioEnabled(false)}
                 title={t('audioOff')}
               />
             </Section>

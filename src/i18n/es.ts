@@ -1,15 +1,19 @@
 import type { Translations } from './types';
 
-// Spanish (Español). Breath terms use the natural meditation phrasing.
+// Spanish (Español). Tú-imperative form (inhala / exhala / sostén / toca)
+// matches Apple Breathe's Spanish localization and the warm-but-direct
+// register used by Calm ES and Petit BamBou ES. Pan-regional vocabulary
+// (toca over pulsa) keeps it natural for both Spain and Latin America.
+// Lowercase preserved across breath cues for the soft visual aesthetic.
 export const es: Translations = {
-  inhale: 'inhalar',
-  exhale: 'exhalar',
-  hold: 'retener',
+  inhale: 'inhala',
+  exhale: 'exhala',
+  hold: 'sostén',
   tap: 'toca',
   modeSilver: 'Plata',
-  modeSilverIntent: 'Reinicio del día',
+  modeSilverIntent: 'Calma diaria',
   modeGold: 'Oro',
-  modeGoldIntent: 'Enfoque y arraigo',
+  modeGoldIntent: 'Enfoque firme',
   modeRainbow: 'Arcoíris',
   modeRainbowIntent: 'Alegría y apertura',
   settings: 'Ajustes',

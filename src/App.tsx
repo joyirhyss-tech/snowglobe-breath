@@ -8,6 +8,8 @@ import { useShakeDetection } from './hooks/useShakeDetection';
 import { pickRandomQuote, type Quote } from './quotes';
 import { MODES, loadStoredMode, persistMode, type ModeId } from './modes';
 import { useLang } from './i18n';
+import { useAudio } from './audio/useAudio';
+import { loadAudioPref, persistAudioPref } from './audio/preference';
 
 // Hush — v2 (App Store version, branch v2-hush).
 // Three modes (silver / gold / rainbow), each with its own breath pattern,
@@ -29,13 +31,27 @@ export default function App() {
   const [modeId, setModeId] = useState<ModeId>(() => loadStoredMode());
   const mode = MODES[modeId];
 
+  // Audio enabled (default ON), persisted across launches.
+  const [audioEnabled, setAudioEnabledState] = useState<boolean>(() => loadAudioPref());
+
   const [shakeImpulse, setShakeImpulse] = useState<ShakeImpulse | null>(null);
   const [currentQuote, setCurrentQuote] = useState<Quote | null>(null);
   const sessionPhaseRef = useRef(sessionState.phase);
   sessionPhaseRef.current = sessionState.phase;
 
-  // Persist mode whenever it changes.
+  // Persist mode and audio preference whenever they change.
   useEffect(() => { persistMode(modeId); }, [modeId]);
+  useEffect(() => { persistAudioPref(audioEnabled); }, [audioEnabled]);
+
+  // Drive the audio engine. Engine starts on session 'active' (which only
+  // happens after a real user gesture — tap or shake — satisfying iOS).
+  useAudio({
+    enabled: audioEnabled,
+    mode,
+    sessionPhase: sessionState.phase,
+    elapsedMs: sessionState.elapsedMs,
+    phases: mode.breath,
+  });
 
   // Shake/tap callback: starts a session if idle/done. No-op otherwise.
   const onShake = useCallback((p: ShakeImpulse) => {
@@ -97,6 +113,8 @@ export default function App() {
       <ThemePicker
         currentModeId={modeId}
         onChangeMode={setModeId}
+        audioEnabled={audioEnabled}
+        onChangeAudioEnabled={setAudioEnabledState}
       />
     </div>
   );
