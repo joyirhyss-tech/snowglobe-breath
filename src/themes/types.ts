@@ -10,6 +10,21 @@ export type Theme = {
     outerColor: string;
     causticColor: string;
     causticIntensity: number; // 0..1
+    // Optional directional sunlight beam — soft cone from the upper part of
+    // the canvas, fading down/sides. Adds a sense of light entering the
+    // water from above. Disabled (omitted) on v1 silver to preserve the
+    // baseline contract; gold and rainbow use it for added depth.
+    lightBeam?: {
+      color: string;     // hex tint of the beam (warm or cool)
+      intensity: number; // 0..1 — additive strength at peak
+    };
+    // Optional pile underglow — soft mode-tinted radial glow concentrated at
+    // the bottom-center where the pile sits. Completes the "jewels at rest"
+    // image at session end. Subtle enough not to compete with sparkle.
+    underglow?: {
+      color: string;
+      intensity: number; // 0..1
+    };
   };
 
   // Particle appearance. Physics comes from CONFIG; themes may override counts/size.

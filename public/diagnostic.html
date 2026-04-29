@@ -1,0 +1,327 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <title>Hush · Diagnostic</title>
+    <meta name="theme-color" content="#0a1426" />
+    <style>
+      :root { color-scheme: dark; }
+      * { box-sizing: border-box; }
+      html, body { margin: 0; padding: 0; background: #0a1426; color: #f2f5fa; font-family: -apple-system, system-ui, sans-serif; min-height: 100vh; }
+      body { padding: 28px 18px 80px; max-width: 700px; margin: 0 auto; }
+      h1 { font-size: 1.5rem; font-weight: 400; margin: 0 0 0.4em; }
+      h2 { font-size: 1rem; font-weight: 500; margin: 1.6em 0 0.4em; opacity: 0.92; border-bottom: 1px solid rgba(255,255,255,0.12); padding-bottom: 0.3em; }
+      p, li { font-size: 0.92rem; line-height: 1.5; }
+      .meta { font-size: 0.78rem; opacity: 0.6; margin-bottom: 1em; }
+      .info-row { display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid rgba(255,255,255,0.06); font-size: 0.85rem; }
+      .info-row .label { opacity: 0.65; }
+      .info-row .value { font-family: ui-monospace, Menlo, monospace; font-size: 0.78rem; max-width: 60%; text-align: right; word-break: break-word; }
+      .ok { color: #7be59f; }
+      .warn { color: #ffd56a; }
+      .err { color: #ff8a8a; }
+      button {
+        display: block;
+        width: 100%;
+        padding: 14px 18px;
+        margin: 10px 0;
+        font-size: 1rem;
+        font-family: inherit;
+        background: linear-gradient(135deg, #3b8fd6 0%, #1f6dac 50%, #0d4d80 100%);
+        color: white;
+        border: 1px solid rgba(255,255,255,0.28);
+        border-radius: 8px;
+        cursor: pointer;
+        font-weight: 500;
+      }
+      button:active { filter: brightness(0.92); }
+      button:disabled { opacity: 0.4; }
+      pre {
+        background: rgba(0,0,0,0.4);
+        border: 1px solid rgba(255,255,255,0.1);
+        border-radius: 6px;
+        padding: 10px 12px;
+        font-size: 0.78rem;
+        line-height: 1.4;
+        overflow-x: auto;
+        white-space: pre-wrap;
+        max-height: 220px;
+        overflow-y: auto;
+      }
+      .live { font-family: ui-monospace, Menlo, monospace; font-size: 0.85rem; padding: 10px; background: rgba(0,0,0,0.4); border-radius: 6px; min-height: 50px; }
+      footer { margin-top: 3em; font-size: 0.78rem; opacity: 0.55; text-align: center; }
+      a { color: #c4d4f0; }
+    </style>
+  </head>
+  <body>
+    <h1>Hush Diagnostic</h1>
+    <p class="meta">For testing audio + motion on iOS Safari. Tap each button and share what you see with the team.</p>
+
+    <h2>Device + Browser</h2>
+    <div id="device-info"></div>
+
+    <h2>1. Motion permission</h2>
+    <p style="font-size: 0.85rem; opacity: 0.85;">Tests <code>DeviceMotionEvent.requestPermission()</code>. iOS should pop a permission dialog on first tap.</p>
+    <button id="btn-motion-perm">Request motion permission</button>
+    <pre id="motion-perm-log">(not yet tested)</pre>
+
+    <h2>2. Live motion samples</h2>
+    <p style="font-size: 0.85rem; opacity: 0.85;">If permission granted, this shows live x/y/z values. <strong>Shake the phone</strong> — the numbers should jump.</p>
+    <button id="btn-motion-live">Start live motion readout</button>
+    <div class="live" id="motion-live">(idle)</div>
+
+    <h2>3. Audio playback</h2>
+    <p style="font-size: 0.85rem; opacity: 0.85;">Plays a 1-second 440 Hz tone via Web Audio. If you hear nothing: check the side switch on your iPhone (orange = silent), volume buttons, and Bluetooth (audio routes to connected devices).</p>
+    <button id="btn-audio-tone">Play test tone (1 second, 440 Hz)</button>
+    <pre id="audio-log">(not yet tested)</pre>
+
+    <h2>4. M4A sample playback</h2>
+    <p style="font-size: 0.85rem; opacity: 0.85;">Tests if Hush's actual audio sample format works on this device.</p>
+    <button id="btn-audio-sample">Play silver-bed.m4a (~3s preview)</button>
+    <pre id="sample-log">(not yet tested)</pre>
+
+    <h2>4b. HTML5 &lt;audio&gt; element (bypass Web Audio entirely)</h2>
+    <p style="font-size: 0.85rem; opacity: 0.85;">If Web Audio above failed but this works: known iOS Safari quirk, fixable. If this also fails: deeper iOS audio block.</p>
+    <button id="btn-html-audio">Play silver-bed.m4a via &lt;audio&gt; tag</button>
+    <pre id="html-audio-log">(not yet tested)</pre>
+    <audio id="html-audio-el" src="/audio/silver-bed.m4a" preload="auto" playsinline></audio>
+
+    <h2>5. Summary for support</h2>
+    <p style="font-size: 0.85rem; opacity: 0.85;">After running tests above, copy this block + send to the team.</p>
+    <pre id="summary">(run tests first)</pre>
+
+    <footer>
+      Hush · diagnostic · <a href="/">return to app</a>
+    </footer>
+
+    <script>
+      // ─── Device info ─────────────────────────────────────────────
+      const ua = navigator.userAgent;
+      const isStandalone = window.matchMedia('(display-mode: standalone)').matches;
+      const dpr = window.devicePixelRatio || 1;
+      const secure = window.isSecureContext;
+      const browser = (() => {
+        if (/CriOS/.test(ua)) return 'Chrome iOS';
+        if (/FxiOS/.test(ua)) return 'Firefox iOS';
+        if (/EdgiOS/.test(ua)) return 'Edge iOS';
+        if (/DuckDuckGo/.test(ua)) return 'DuckDuckGo iOS';
+        if (/Safari/.test(ua) && /Mobile/.test(ua)) return 'Safari iOS';
+        return 'Unknown';
+      })();
+      const iosVersionMatch = ua.match(/OS (\d+)_(\d+)(?:_(\d+))?/);
+      const iosVersion = iosVersionMatch
+        ? `${iosVersionMatch[1]}.${iosVersionMatch[2]}${iosVersionMatch[3] ? '.' + iosVersionMatch[3] : ''}`
+        : 'Unknown';
+      const dmAvailable = typeof DeviceMotionEvent !== 'undefined';
+      const dmReqPermAvailable = dmAvailable && typeof DeviceMotionEvent.requestPermission === 'function';
+      const audioCtxAvailable = typeof (window.AudioContext || window.webkitAudioContext) === 'function';
+
+      const deviceInfo = {
+        'Browser': browser,
+        'iOS version': iosVersion,
+        'Secure context (HTTPS)': secure ? '✓ yes' : '✗ no',
+        'Standalone (PWA)': isStandalone ? '✓ yes' : 'no',
+        'DPR': dpr,
+        'DeviceMotionEvent': dmAvailable ? '✓ available' : '✗ missing',
+        'DeviceMotionEvent.requestPermission': dmReqPermAvailable ? '✓ available' : '✗ not needed (Android/desktop) or not exposed',
+        'AudioContext': audioCtxAvailable ? '✓ available' : '✗ missing',
+      };
+
+      const infoEl = document.getElementById('device-info');
+      Object.entries(deviceInfo).forEach(([k, v]) => {
+        const row = document.createElement('div');
+        row.className = 'info-row';
+        const isOk = String(v).startsWith('✓');
+        const isErr = String(v).startsWith('✗');
+        row.innerHTML = `<span class="label">${k}</span><span class="value ${isOk ? 'ok' : isErr ? 'err' : ''}">${v}</span>`;
+        infoEl.appendChild(row);
+      });
+
+      // ─── State ───────────────────────────────────────────────────
+      const state = {
+        motionPerm: 'untested',
+        motionLive: false,
+        audioTone: 'untested',
+        audioSample: 'untested',
+        htmlAudio: 'untested',
+        peakDelta: 0,
+      };
+
+      function updateSummary() {
+        const lines = [
+          'HUSH DIAGNOSTIC',
+          '─────────────────────────',
+          `Browser: ${browser}`,
+          `iOS: ${iosVersion}`,
+          `HTTPS: ${secure}`,
+          `DM API: ${dmAvailable}, requestPermission: ${dmReqPermAvailable}`,
+          `Motion permission: ${state.motionPerm}`,
+          `Motion live samples: ${state.motionLive ? 'yes' : 'no'}`,
+          `Peak delta during shake: ${state.peakDelta.toFixed(2)}`,
+          `Audio tone: ${state.audioTone}`,
+          `Audio sample (m4a Web Audio): ${state.audioSample}`,
+          `Audio sample (HTML5 <audio>): ${state.htmlAudio}`,
+          `User agent: ${ua}`,
+        ];
+        document.getElementById('summary').textContent = lines.join('\n');
+      }
+      updateSummary();
+
+      // ─── Motion permission test ──────────────────────────────────
+      const motionPermBtn = document.getElementById('btn-motion-perm');
+      const motionPermLog = document.getElementById('motion-perm-log');
+      motionPermBtn.addEventListener('click', async () => {
+        motionPermLog.textContent = 'requesting…';
+        if (!dmReqPermAvailable) {
+          state.motionPerm = 'not gated (no requestPermission API)';
+          motionPermLog.textContent = `OK: requestPermission() does not exist on this device.\nThat means motion access is either auto-granted (Android, desktop) or unavailable.`;
+          updateSummary();
+          return;
+        }
+        try {
+          const result = await DeviceMotionEvent.requestPermission();
+          state.motionPerm = result;
+          motionPermLog.textContent = `Result: "${result}"\n\n${
+            result === 'granted'
+              ? '✓ Granted! Now scroll down and tap "Start live motion readout".'
+              : result === 'denied'
+              ? '✗ Denied. Clear site data: Settings → Safari → Advanced → Website Data → search "hush" → swipe to delete. Then reload this page.'
+              : `Unexpected result: ${result}`
+          }`;
+        } catch (err) {
+          state.motionPerm = 'error: ' + (err && err.message ? err.message : String(err));
+          motionPermLog.textContent = `Error: ${err && err.message ? err.message : err}\n\nLikely causes:\n  • Lockdown Mode is on (Settings → Privacy & Security → Lockdown Mode)\n  • Browser doesn't support the API\n  • Page isn't HTTPS (this page IS, but mentioning for completeness)`;
+        }
+        updateSummary();
+      });
+
+      // ─── Live motion samples ─────────────────────────────────────
+      const motionLiveBtn = document.getElementById('btn-motion-live');
+      const motionLiveEl = document.getElementById('motion-live');
+      let lastSample = null;
+      let liveStarted = false;
+
+      function attachMotion() {
+        liveStarted = true;
+        state.motionLive = true;
+        motionLiveBtn.disabled = true;
+        motionLiveBtn.textContent = 'Live motion readout active';
+        motionLiveEl.textContent = 'Listening… SHAKE the phone now.';
+        window.addEventListener('devicemotion', (e) => {
+          const acc = e.accelerationIncludingGravity || e.acceleration;
+          if (!acc || acc.x == null) return;
+          if (lastSample) {
+            const dx = acc.x - lastSample.x;
+            const dy = acc.y - lastSample.y;
+            const dz = acc.z - lastSample.z;
+            const delta = Math.sqrt(dx*dx + dy*dy + dz*dz);
+            if (delta > state.peakDelta) {
+              state.peakDelta = delta;
+              updateSummary();
+            }
+          }
+          lastSample = { x: acc.x, y: acc.y, z: acc.z };
+          motionLiveEl.textContent =
+            `x = ${acc.x.toFixed(2)}\n` +
+            `y = ${acc.y.toFixed(2)}\n` +
+            `z = ${acc.z.toFixed(2)}\n\n` +
+            `peak delta during shakes: ${state.peakDelta.toFixed(2)}\n` +
+            `(Hush triggers a session at delta > 5)`;
+        });
+      }
+
+      motionLiveBtn.addEventListener('click', async () => {
+        if (liveStarted) return;
+        if (dmReqPermAvailable && state.motionPerm !== 'granted') {
+          motionLiveEl.textContent = 'Need permission first — tap "Request motion permission" above.';
+          return;
+        }
+        attachMotion();
+      });
+
+      // ─── Audio tone test ─────────────────────────────────────────
+      const audioToneBtn = document.getElementById('btn-audio-tone');
+      const audioLog = document.getElementById('audio-log');
+      audioToneBtn.addEventListener('click', async () => {
+        audioLog.textContent = 'starting audio context…';
+        try {
+          const Ctx = window.AudioContext || window.webkitAudioContext;
+          const ctx = new Ctx();
+          if (ctx.state === 'suspended') await ctx.resume();
+          audioLog.textContent = `Audio context state: ${ctx.state}\nSample rate: ${ctx.sampleRate} Hz\nPlaying 1s 440 Hz tone…`;
+
+          const osc = ctx.createOscillator();
+          const gain = ctx.createGain();
+          osc.frequency.value = 440;
+          osc.type = 'sine';
+          gain.gain.value = 0;
+          osc.connect(gain).connect(ctx.destination);
+          osc.start();
+          // Soft attack/release to avoid click
+          gain.gain.linearRampToValueAtTime(0.25, ctx.currentTime + 0.05);
+          gain.gain.linearRampToValueAtTime(0.0, ctx.currentTime + 1.0);
+          osc.stop(ctx.currentTime + 1.05);
+
+          await new Promise((r) => setTimeout(r, 1100));
+          state.audioTone = `played (ctx state: ${ctx.state}, rate: ${ctx.sampleRate})`;
+          audioLog.textContent = `✓ Tone played.\n\nIf you didn't hear it:\n  • Check the side switch on your iPhone — orange dot = silenced\n  • Press the volume UP button while this page is open (locks ringer level)\n  • Make sure no Bluetooth device is connected (audio routes to it)\n  • In Control Center, swipe to volume slider and turn up`;
+        } catch (err) {
+          state.audioTone = 'error: ' + (err && err.message ? err.message : String(err));
+          audioLog.textContent = `✗ Error: ${err && err.message ? err.message : err}`;
+        }
+        updateSummary();
+      });
+
+      // ─── M4A sample test ─────────────────────────────────────────
+      const audioSampleBtn = document.getElementById('btn-audio-sample');
+      const sampleLog = document.getElementById('sample-log');
+      audioSampleBtn.addEventListener('click', async () => {
+        sampleLog.textContent = 'fetching silver-bed.m4a…';
+        try {
+          const Ctx = window.AudioContext || window.webkitAudioContext;
+          const ctx = new Ctx();
+          if (ctx.state === 'suspended') await ctx.resume();
+          const res = await fetch('/audio/silver-bed.m4a');
+          if (!res.ok) throw new Error(`HTTP ${res.status}`);
+          const buffer = await res.arrayBuffer();
+          sampleLog.textContent = `Fetched ${(buffer.byteLength/1024).toFixed(0)} KB. Decoding…`;
+          const audioBuffer = await ctx.decodeAudioData(buffer);
+          const source = ctx.createBufferSource();
+          source.buffer = audioBuffer;
+          const gain = ctx.createGain();
+          gain.gain.value = 0.6;
+          source.connect(gain).connect(ctx.destination);
+          source.start(0, 0, 3); // play first 3 seconds
+          state.audioSample = `playing (${audioBuffer.duration.toFixed(1)}s, ${audioBuffer.sampleRate} Hz, ${audioBuffer.numberOfChannels}ch)`;
+          sampleLog.textContent = `✓ Playing 3s of silver-bed.m4a\n  duration: ${audioBuffer.duration.toFixed(1)}s\n  sample rate: ${audioBuffer.sampleRate} Hz\n  channels: ${audioBuffer.numberOfChannels}\n\nIf silent: same checks as the tone test above.`;
+        } catch (err) {
+          state.audioSample = 'error: ' + (err && err.message ? err.message : String(err));
+          sampleLog.textContent = `✗ Error: ${err && err.message ? err.message : err}\n\nIf the error mentions decode: Safari can't read the m4a on this device. Tell the team.`;
+        }
+        updateSummary();
+      });
+
+      // ─── HTML5 audio element test ────────────────────────────────
+      const htmlAudioBtn = document.getElementById('btn-html-audio');
+      const htmlAudioLog = document.getElementById('html-audio-log');
+      const htmlAudioEl = document.getElementById('html-audio-el');
+      htmlAudioBtn.addEventListener('click', async () => {
+        htmlAudioLog.textContent = 'attempting <audio>.play()…';
+        try {
+          htmlAudioEl.volume = 0.7;
+          htmlAudioEl.currentTime = 0;
+          await htmlAudioEl.play();
+          state.htmlAudio = `playing (paused=${htmlAudioEl.paused}, muted=${htmlAudioEl.muted}, vol=${htmlAudioEl.volume})`;
+          htmlAudioLog.textContent =
+            `✓ <audio>.play() succeeded.\n  paused: ${htmlAudioEl.paused}\n  muted: ${htmlAudioEl.muted}\n  volume: ${htmlAudioEl.volume}\n  readyState: ${htmlAudioEl.readyState}\n  duration: ${htmlAudioEl.duration?.toFixed?.(1) || '?'}s\n\nIf you hear lake waves: Web Audio is the broken path; HTML5 audio is fine.\nIf you hear nothing here either: deeper iOS issue (try restarting the phone).`;
+          // Stop after 3 seconds
+          setTimeout(() => { htmlAudioEl.pause(); }, 3000);
+        } catch (err) {
+          state.htmlAudio = 'error: ' + (err && err.message ? err.message : String(err));
+          htmlAudioLog.textContent = `✗ Error: ${err && err.message ? err.message : err}\n\nThis is the simplest possible audio path. If it errors, iOS is blocking media at the system level.`;
+        }
+        updateSummary();
+      });
+    </script>
+  </body>
+</html>

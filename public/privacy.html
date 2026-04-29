@@ -1,0 +1,159 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <title>Hush · Privacy</title>
+    <meta name="theme-color" content="#0a1426" />
+    <meta name="description" content="Hush stores nothing on our servers. Settings live on your device. No tracking. No analytics. Built by TPC | AEQ." />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@1,300;1,400&family=Italiana&display=swap" rel="stylesheet" />
+    <style>
+      :root { color-scheme: dark; }
+      html, body {
+        margin: 0;
+        padding: 0;
+        background: radial-gradient(ellipse at center top, #0a1426 0%, #01030a 80%);
+        color: #f2f5fa;
+        font-family: system-ui, -apple-system, sans-serif;
+        font-weight: 300;
+        -webkit-font-smoothing: antialiased;
+        min-height: 100vh;
+      }
+      body {
+        max-width: 640px;
+        margin: 0 auto;
+        padding: 8vh 28px 12vh;
+        line-height: 1.65;
+        font-size: 1.02rem;
+      }
+      h1 {
+        font-family: 'Italiana', 'Cormorant Garamond', serif;
+        font-style: normal;
+        font-weight: 400;
+        font-size: 2.6rem;
+        letter-spacing: 0.02em;
+        margin: 0 0 0.4em;
+        color: #f6f0ff;
+      }
+      h2 {
+        font-family: 'Cormorant Garamond', serif;
+        font-style: italic;
+        font-weight: 400;
+        font-size: 1.4rem;
+        letter-spacing: 0.01em;
+        margin: 2.2em 0 0.4em;
+        color: #e0e8f4;
+      }
+      .meta {
+        font-size: 0.82rem;
+        opacity: 0.55;
+        margin-bottom: 2em;
+        font-style: italic;
+        font-family: 'Cormorant Garamond', serif;
+      }
+      p { margin: 0 0 1em; opacity: 0.88; }
+      a { color: #c4d4f0; text-decoration: none; border-bottom: 1px dotted rgba(196, 212, 240, 0.5); }
+      a:hover { color: #fff; border-bottom-color: rgba(255, 255, 255, 0.7); }
+      strong { font-weight: 500; opacity: 0.95; }
+      ul { padding-left: 1.4em; margin: 0 0 1em; }
+      li { margin: 0.4em 0; opacity: 0.88; }
+      hr { border: none; border-top: 1px solid rgba(255, 255, 255, 0.12); margin: 3em 0; }
+      footer {
+        margin-top: 3em;
+        font-size: 0.85rem;
+        opacity: 0.55;
+        font-style: italic;
+        font-family: 'Cormorant Garamond', serif;
+        text-align: center;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>Privacy</h1>
+    <p class="meta">Effective 27 April 2026</p>
+
+    <p>
+      Hush is a sixty-second breath practice. We built it to be used, not
+      to be a vehicle for collecting data about you. This page tells you
+      exactly what happens with information when you open the app.
+    </p>
+
+    <h2>What we collect on our servers</h2>
+    <p>
+      <strong>Nothing.</strong> Hush has no account system, no login, no
+      analytics SDK, no advertising, no third-party tracking, and no
+      crash reporter. When you use the app, no information about you,
+      your device, or your session is sent to TPC | AEQ or anyone else.
+    </p>
+
+    <h2>What stays on your device</h2>
+    <p>
+      Your settings live in your browser or device storage
+      (<em>localStorage</em>). That includes:
+    </p>
+    <ul>
+      <li>The mode you last selected (Silver, Gold, or Rainbow)</li>
+      <li>Your display preference (Words, Countdown, or Silent)</li>
+      <li>Whether audio and narration are enabled</li>
+      <li>Your chosen language</li>
+    </ul>
+    <p>
+      These are read by the app each time you open it so your previous
+      choices are remembered. Clearing your browser data, reinstalling
+      the app, or using private/incognito mode resets them.
+    </p>
+
+    <h2>Feedback you send through Roo</h2>
+    <p>
+      Inside Settings, the <strong>About</strong> section includes a
+      <em>Tell Roo what's up</em> link. If you tap it and send a message,
+      Roo records what you wrote and which mode you were in. Roo does
+      not record your name, email address, location, or device
+      identifiers. The current build of Hush stores those messages
+      locally on your device only — they do not leave your device until
+      and unless we connect a feedback backend in a future update. If we
+      do, this page will be updated to describe where messages go and
+      who can read them.
+    </p>
+
+    <h2>HealthKit (when enabled)</h2>
+    <p>
+      If you grant Hush permission to write to Apple Health, the app
+      writes one entry per completed session to the
+      <em>Mindful Minutes</em> category. That entry contains the session
+      length and timestamp. It lives in your Apple Health database. It
+      is not transmitted anywhere by Hush. You can revoke permission at
+      any time in Settings → Privacy & Security → Health on iOS.
+    </p>
+
+    <h2>Children</h2>
+    <p>
+      Hush is rated 4+ and contains no advertising, no in-app purchases,
+      no chat, and no user-generated content. It collects no
+      information about anyone. It is suitable for all ages.
+    </p>
+
+    <h2>Changes to this policy</h2>
+    <p>
+      If we ever change what Hush collects or how it handles
+      information, we will update the date at the top of this page and
+      describe what changed. Our standing commitment is that any future
+      change will move toward less data, not more.
+    </p>
+
+    <h2>Contact</h2>
+    <p>
+      Questions, concerns, or requests can go to
+      <a href="mailto:info@aidedeq.org">info@aidedeq.org</a>.
+    </p>
+
+    <hr />
+
+    <footer>
+      Hush · built by TPC | AEQ ·
+      <a href="/" style="border: none;">return to the app</a>
+    </footer>
+  </body>
+</html>

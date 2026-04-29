@@ -48,6 +48,14 @@ export function QuoteReveal({ quote, visible, fadeOutProgress, theme }: Props) {
 
   return (
     <div
+      // role="status" + aria-live="polite" causes VoiceOver to announce the
+      // quote (and its author) once when it appears. "polite" means the
+      // announcement waits for any current speech to finish — the breath
+      // cue may still be reading "exhale" as the quote enters; we don't
+      // want to cut it off mid-word.
+      role="status"
+      aria-live="polite"
+      aria-atomic="true"
       style={{
         position: 'fixed',
         inset: 0,

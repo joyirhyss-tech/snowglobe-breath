@@ -1,0 +1,878 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Hush · With Gratitude to the Voices Held Here</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;1,300;1,400&family=Italiana&family=Noto+Serif+KR:wght@300;400&family=Caveat:wght@400&display=swap" rel="stylesheet">
+<style>
+  @page { size: Letter; margin: 0.85in; }
+  @media print {
+    body { font-size: 10.5pt; }
+    .author { break-inside: avoid; page-break-inside: avoid; }
+    .cover { page-break-after: always; }
+    .section-header { page-break-before: always; }
+    .section-header.first { page-break-before: avoid; }
+  }
+
+  :root {
+    --ink: #1f1a16;
+    --paper: #faf6ee;
+    --muted: #7a6d60;
+    --accent: #8a6d3b;
+    --accent-soft: #b89968;
+    --rule: #ddd2bf;
+  }
+
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  body {
+    font-family: 'Cormorant Garamond', 'Garamond', 'Georgia', serif;
+    color: var(--ink);
+    background: var(--paper);
+    line-height: 1.6;
+    max-width: 7.2in;
+    margin: 0 auto;
+    padding: 0.5in 0.5in 1in 0.5in;
+    font-feature-settings: "liga", "kern", "onum";
+  }
+
+  h1, h2, h3 { font-weight: 400; letter-spacing: 0.01em; }
+
+  /* Hangul script next to roman name */
+  .hangul {
+    font-family: 'Noto Serif KR', 'Cormorant Garamond', serif;
+    font-weight: 300;
+    font-size: 0.78em;
+    color: var(--accent);
+    margin-left: 0.4em;
+    letter-spacing: 0.02em;
+  }
+
+  /* Decorative ornament — small diamond cluster, typeset, used as visual rest */
+  .ornament {
+    text-align: center;
+    color: var(--accent-soft);
+    font-size: 11pt;
+    letter-spacing: 1.2em;
+    margin: 0.35in 0;
+    text-indent: 1.2em; /* offset the trailing letter-spacing */
+  }
+  .ornament::before { content: '\2756  \2756  \2756'; }
+
+  .cover {
+    text-align: center;
+    padding: 1.6in 0 1in 0;
+    border-bottom: none;
+    margin-bottom: 0.4in;
+    position: relative;
+  }
+  .cover::after {
+    content: '\2756';
+    display: block;
+    color: var(--accent-soft);
+    font-size: 14pt;
+    margin-top: 0.6in;
+  }
+  .cover .mark {
+    font-family: 'Italiana', 'Cormorant Garamond', serif;
+    font-size: 16pt;
+    letter-spacing: 0.5em;
+    color: var(--accent);
+    text-transform: uppercase;
+    margin-bottom: 0.5in;
+    text-indent: 0.5em;
+  }
+  .cover h1 {
+    font-family: 'Italiana', 'Cormorant Garamond', serif;
+    font-size: 40pt;
+    margin: 0 0 0.35in 0;
+    font-style: normal;
+    font-weight: 400;
+    line-height: 1.12;
+    color: var(--ink);
+    letter-spacing: 0.005em;
+  }
+  .cover .subtitle {
+    font-size: 13.5pt;
+    color: var(--muted);
+    max-width: 4.8in;
+    margin: 0 auto 0.4in auto;
+    line-height: 1.55;
+    font-style: italic;
+    font-weight: 300;
+  }
+  .cover .meta {
+    font-family: 'Italiana', 'Cormorant Garamond', serif;
+    font-size: 9.5pt;
+    color: var(--muted);
+    letter-spacing: 0.25em;
+    text-transform: uppercase;
+    margin-top: 0.5in;
+  }
+
+  .dedication {
+    margin: 0.4in auto 0.5in auto;
+    max-width: 5.4in;
+    font-size: 13pt;
+    line-height: 1.85;
+    color: var(--ink);
+    font-weight: 300;
+  }
+  .dedication p { margin: 0.22in 0; }
+  .dedication p:first-child {
+    font-size: 18pt;
+    font-style: italic;
+    color: var(--accent);
+    text-align: center;
+    margin: 0.1in 0 0.4in 0;
+  }
+  .dedication .signoff {
+    text-align: right;
+    font-style: italic;
+    color: var(--accent);
+    margin-top: 0.4in;
+    font-size: 13pt;
+    line-height: 1.5;
+  }
+  .dedication .signoff .name {
+    font-family: 'Caveat', 'Cormorant Garamond', cursive;
+    font-style: normal;
+    font-size: 22pt;
+    color: var(--accent);
+    display: inline-block;
+    margin-top: 0.05in;
+    letter-spacing: 0.01em;
+  }
+
+  .section-header {
+    text-align: center;
+    margin: 0.6in 0 0.4in 0;
+  }
+  .section-header::before {
+    content: '\2756';
+    display: block;
+    color: var(--accent-soft);
+    font-size: 13pt;
+    margin-bottom: 0.25in;
+  }
+  .section-header h2 {
+    font-family: 'Italiana', 'Cormorant Garamond', serif;
+    font-size: 26pt;
+    margin: 0;
+    font-style: normal;
+    font-weight: 400;
+    color: var(--accent);
+    letter-spacing: 0.01em;
+  }
+  .section-header .desc {
+    font-size: 11.5pt;
+    color: var(--muted);
+    margin-top: 0.18in;
+    max-width: 4.8in;
+    margin-left: auto;
+    margin-right: auto;
+    line-height: 1.6;
+    font-style: italic;
+    font-weight: 300;
+  }
+
+  .author {
+    margin: 0.32in 0;
+    padding: 0.22in 0 0 0;
+    border-top: 1px solid var(--rule);
+    position: relative;
+  }
+  .author:first-of-type { border-top: none; padding-top: 0; }
+  .author-name {
+    font-family: 'Italiana', 'Cormorant Garamond', serif;
+    font-size: 18pt;
+    font-weight: 400;
+    margin: 0 0 0.06in 0;
+    color: var(--ink);
+    letter-spacing: 0.005em;
+  }
+  .author-meta {
+    font-size: 9pt;
+    color: var(--muted);
+    letter-spacing: 0.13em;
+    text-transform: uppercase;
+    margin-bottom: 0.16in;
+    font-weight: 400;
+  }
+  .author-bio {
+    font-size: 11.5pt;
+    line-height: 1.65;
+    margin: 0.12in 0 0.18in 0;
+    color: var(--ink);
+    font-weight: 300;
+  }
+  .author-quote {
+    font-size: 11.5pt;
+    line-height: 1.55;
+    color: var(--accent);
+    font-style: italic;
+    font-weight: 300;
+    margin: 0.06in 0 0.06in 0.3in;
+    border-left: 1.5px solid var(--accent-soft);
+    padding-left: 0.22in;
+  }
+  .author-quote::before { content: '\201C'; margin-right: 0.02em; }
+  .author-quote::after { content: '\201D'; margin-left: 0.02em; }
+
+  .memoriam .author { padding: 0.16in 0 0 0; margin: 0.14in 0; }
+  .memoriam .author-bio { font-size: 10.5pt; line-height: 1.6; }
+  .memoriam .author-name { font-size: 14pt; }
+  .memoriam .author-quote { font-size: 10.5pt; }
+
+  .closing {
+    margin-top: 0.7in;
+    padding: 0.5in 0 0.2in 0;
+    border-top: none;
+    text-align: center;
+    font-size: 13pt;
+    color: var(--muted);
+    line-height: 1.85;
+    font-style: italic;
+    font-weight: 300;
+  }
+  .closing::before {
+    content: '\2756  \2756  \2756';
+    display: block;
+    color: var(--accent-soft);
+    font-size: 12pt;
+    letter-spacing: 1em;
+    text-indent: 1em;
+    margin-bottom: 0.4in;
+    font-style: normal;
+  }
+  .closing .languages {
+    color: var(--accent);
+    font-size: 14pt;
+    margin-bottom: 0.25in;
+    letter-spacing: 0.02em;
+  }
+
+  .print-helper {
+    position: fixed;
+    top: 16px; right: 16px;
+    background: var(--accent);
+    color: white;
+    padding: 10px 18px;
+    border-radius: 6px;
+    font-family: -apple-system, sans-serif;
+    font-size: 13px;
+    cursor: pointer;
+    border: none;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+  }
+  @media print { .print-helper { display: none; } }
+</style>
+</head>
+<body>
+
+<button class="print-helper" onclick="window.print()">Print to PDF</button>
+
+<section class="cover">
+  <div class="mark">Hush</div>
+  <h1>With Gratitude<br>to the Voices Held Here</h1>
+  <p class="subtitle">A 60 second meditation app, closed each day with one of two hundred voices. This is a keepsake of who is held inside the quiet minute.</p>
+  <div class="meta">Kim Jo Yi · 김조이 · TPC | AEQ · 2026</div>
+</section>
+
+<section class="dedication">
+  <p>Thank you.</p>
+
+  <p>Hush is a small thing. A user shakes their phone, glitter rises and settles inside a snowglobe, and at the end of one minute, one line appears on the dark, still water. That line is yours.</p>
+
+  <p>I built this so that the last thing a person hears at the close of their breath is a voice that has steadied me. Yours has steadied me. The library was researched against primary sources, and seven famous misattributions were lifted out so that the line under your name is, in fact, your line.</p>
+
+  <p>You are part of how someone returned to themselves today. I wanted you to know.</p>
+
+  <p class="signoff">With love and respect,<br><span class="name">Kim Jo Yi</span><br><span class="hangul" style="margin-left: 0;">김조이</span></p>
+</section>
+
+<div class="section-header first">
+  <h2>Voices Living Among Us</h2>
+  <p class="desc">Writers, monks, organizers, and elders whose work continues today, and whose words close a Hush session somewhere in the world.</p>
+</div>
+
+<div class="author">
+  <h3 class="author-name">adrienne maree brown</h3>
+  <p class="author-meta">Movement facilitator · Emergent Strategy, Pleasure Activism</p>
+  <p class="author-bio">Movement facilitator and writer whose books on emergent strategy and pleasure activism teach that joy and slowness are how liberation actually moves. Her work makes care a political practice.</p>
+  <p class="author-quote">Pleasure is a measure of freedom.</p>
+</div>
+
+<div class="author">
+  <h3 class="author-name">Alice Walker</h3>
+  <p class="author-meta">Pulitzer-winning novelist · The Color Purple</p>
+  <p class="author-bio">Novelist and poet whose work on womanism, gardens, and Black Southern life made room for joy as a survival skill. She taught that the spiritual is in the soil.</p>
+  <p class="author-quote">Hard times require furious dancing.</p>
+</div>
+
+<div class="author">
+  <h3 class="author-name">Arundhati Roy</h3>
+  <p class="author-meta">Indian novelist and essayist · Delhi</p>
+  <p class="author-bio">Indian novelist and essayist whose work holds the love of small things and the politics of large ones in the same breath. She writes toward a world quietly remade.</p>
+  <p class="author-quote">Another world is not only possible, she is on her way.</p>
+</div>
+
+<div class="author">
+  <h3 class="author-name">Aurora Levins Morales</h3>
+  <p class="author-meta">Puerto Rican Jewish writer · Medicine Stories</p>
+  <p class="author-bio">Puerto Rican Jewish writer whose Medicine Stories binds healing, history, and the body of the land. Her work teaches that solidarity is the practice of remembering together.</p>
+  <p class="author-quote">History is the story we tell to remember ourselves.</p>
+</div>
+
+<div class="author">
+  <h3 class="author-name">Banana Yoshimoto (吉本ばなな)</h3>
+  <p class="author-meta">Japanese novelist · Kitchen, Goodbye Tsugumi · Tokyo</p>
+  <p class="author-bio">Japanese novelist whose quiet, dreamlike fiction holds grief, food, and ordinary kindness with luminous tenderness. Her books make the reader believe in small kept lights.</p>
+  <p class="author-quote">Truly great people emit a light that warms the hearts of those around them.</p>
+</div>
+
+<div class="author">
+  <h3 class="author-name">Bayo Akomolafe</h3>
+  <p class="author-meta">Yoruba philosopher · Chief Curator, Emergence Network</p>
+  <p class="author-bio">Yoruba philosopher whose teaching on slowness reframes activism as ecological humility. He invites us to fail differently, and to come home to the world by failing more truly.</p>
+  <p class="author-quote">The times are urgent: let us slow down.</p>
+</div>
+
+<div class="author">
+  <h3 class="author-name">Brandy Nālani McDougall</h3>
+  <p class="author-meta">Kanaka ʻŌiwi · current Hawaiʻi Poet Laureate</p>
+  <p class="author-bio">Hawaiʻi Poet Laureate whose work braids ʻōlelo Hawaiʻi, ancestral memory, and motherhood. Her poems make the land speak in its own breath.</p>
+  <p class="author-quote">Every word is a seed.</p>
+</div>
+
+<div class="author">
+  <h3 class="author-name">Cherríe Moraga</h3>
+  <p class="author-meta">Chicana lesbian playwright · UC Santa Barbara</p>
+  <p class="author-bio">Chicana lesbian playwright and editor of This Bridge Called My Back, whose work braids feminism, queerness, and ancestry. She writes toward a love that survives history.</p>
+  <p class="author-quote">The danger lies in ranking the oppressions.</p>
+</div>
+
+<div class="author">
+  <h3 class="author-name">Cole Arthur Riley</h3>
+  <p class="author-meta">Writer, Black Liturgies · contemplative practice</p>
+  <p class="author-bio">Writer and creator of Black Liturgies, who pairs contemplative tradition with the embodied life of Black faith. Her work makes prayer a place of rest, dignity, and ordinary wonder.</p>
+  <p class="author-quote">Wonder is a force of liberation.</p>
+</div>
+
+<div class="author">
+  <h3 class="author-name">Eli Clare</h3>
+  <p class="author-meta">Disabled queer/trans writer · Brilliant Imperfection</p>
+  <p class="author-bio">White disabled queer/trans writer whose Brilliant Imperfection refuses the cure narrative and honors disabled lives as already whole. His writing is a slow, careful walk into truer language.</p>
+  <p class="author-quote">I want to enter the worlds beyond cure.</p>
+</div>
+
+<div class="author">
+  <h3 class="author-name">Jamila Woods</h3>
+  <p class="author-meta">Chicago poet and singer · HEAVN, LEGACY! LEGACY!</p>
+  <p class="author-bio">Chicago poet and singer whose work celebrates Black girlhood, water, and the breath between notes. Her writing is a chorus that holds you.</p>
+  <p class="author-quote">I am not lost. I am right here.</p>
+</div>
+
+<div class="author">
+  <h3 class="author-name">Joy Harjo</h3>
+  <p class="author-meta">Mvskoke / Muscogee Creek Nation · Former U.S. Poet Laureate</p>
+  <p class="author-bio">First Native U.S. Poet Laureate, whose poems sing the breath, the horse, and the ancestor present in this moment. She offers language as a way home.</p>
+  <p class="author-quote">Remember the sky that you were born under.</p>
+</div>
+
+<div class="author">
+  <h3 class="author-name">Junauda Petrus-Nasah</h3>
+  <p class="author-meta">Black queer Caribbean writer · Minneapolis</p>
+  <p class="author-bio">Black queer Caribbean writer and performer whose work centers Black femme tenderness, ancestral memory, and the sacredness of softness. Her writing makes joy a serious practice.</p>
+  <p class="author-quote">Our liberation is bound up with our softness.</p>
+</div>
+
+<div class="author">
+  <h3 class="author-name">Kao Kalia Yang</h3>
+  <p class="author-meta">Hmong-American writer · The Latehomecomer · Minneapolis</p>
+  <p class="author-bio">Hmong-American writer whose memoirs honor refugee parents, daughters, and the quiet labor of carrying a people's story. Her work is a tender archive.</p>
+  <p class="author-quote">I learned that the world is full of people who love you and have never met you.</p>
+</div>
+
+<div class="author">
+  <h3 class="author-name">Kim Jo Yi <span class="hangul">김조이</span></h3>
+  <p class="author-meta">Founder, The Practice Center &amp; AEQ · Hilo, Chicago</p>
+  <p class="author-bio">Kim Jo Yi is the founder of The Practice Center and AEQ, a writer and equity practitioner whose work braids somatic practice, leadership, and inheritance. Korean African American adoptee, twenty years rooted in Hilo, now writing from Chicago.</p>
+  <p class="author-quote">I belong to me now.</p>
+  <p class="author-quote">Letting go doesn’t mean falling, it means flying.</p>
+</div>
+
+<div class="author">
+  <h3 class="author-name">Leah Lakshmi Piepzna-Samarasinha</h3>
+  <p class="author-meta">Queer disabled Sri Lankan writer · Care Work</p>
+  <p class="author-bio">Queer disabled Sri Lankan writer whose Care Work names crip kinship as the heart of survival. They write toward a world where care is the infrastructure.</p>
+  <p class="author-quote">We are each other's best chance at survival.</p>
+</div>
+
+<div class="author">
+  <h3 class="author-name">Leanne Betasamosake Simpson</h3>
+  <p class="author-meta">Michi Saagiig Nishnaabeg · poet, scholar, musician</p>
+  <p class="author-bio">Poet, scholar, and musician whose work practices Indigenous resurgence as everyday joyful refusal. Her writing teaches that our relationships are the practice.</p>
+  <p class="author-quote">Love is a practice, not a feeling.</p>
+</div>
+
+<div class="author">
+  <h3 class="author-name">Li-Young Lee</h3>
+  <p class="author-meta">Indonesian-Chinese-American poet · Chicago</p>
+  <p class="author-bio">Indonesian-Chinese-American poet whose work braids exile, family, and the quiet sacred. His poems are prayers for the ordinary table.</p>
+  <p class="author-quote">There are days we live as if death were nowhere in the background.</p>
+</div>
+
+<div class="author">
+  <h3 class="author-name">Linda Hogan</h3>
+  <p class="author-meta">Chickasaw Nation · poet and essayist</p>
+  <p class="author-bio">Poet and essayist who writes the body of the land and the land in the body. Her work calls readers home to creaturely belonging.</p>
+  <p class="author-quote">You are the result of the love of thousands.</p>
+</div>
+
+<div class="author">
+  <h3 class="author-name">Maggie Nelson</h3>
+  <p class="author-meta">Poet and essayist · Bluets, The Argonauts · USC</p>
+  <p class="author-bio">Poet and essayist whose hybrid work on color, queer family, and freedom refuses easy answers. Her writing is a meditation on living with the unfinished.</p>
+  <p class="author-quote">I have been trying, for some time now, to find dignity in my loneliness.</p>
+</div>
+
+<div class="author">
+  <h3 class="author-name">Mariame Kaba</h3>
+  <p class="author-meta">Abolitionist organizer · Project NIA · Chicago / NYC</p>
+  <p class="author-bio">Abolitionist organizer and educator whose work makes hope a discipline and care a daily practice. She teaches that we are everything we have ever needed.</p>
+  <p class="author-quote">Hope is a discipline.</p>
+</div>
+
+<div class="author">
+  <h3 class="author-name">Marlon James</h3>
+  <p class="author-meta">Booker-winning novelist · Macalester College, St. Paul</p>
+  <p class="author-bio">Jamaican novelist whose epic, mythic fiction holds queer Black life with operatic tenderness and ferocity. He writes toward the freedom of being seen whole.</p>
+  <p class="author-quote">The truth changes shape just as much as a lie.</p>
+</div>
+
+<div class="author">
+  <h3 class="author-name">Mia Mingus</h3>
+  <p class="author-meta">Disability justice educator · Leaving Evidence</p>
+  <p class="author-bio">Korean transracial adoptee, disability justice writer and educator whose work centers transformative justice and access intimacy. She teaches that interdependence is the future.</p>
+  <p class="author-quote">Access intimacy is that elusive feeling when someone else gets your access needs.</p>
+</div>
+
+<div class="author">
+  <h3 class="author-name">Naomi Shihab Nye</h3>
+  <p class="author-meta">Palestinian-American poet · San Antonio</p>
+  <p class="author-bio">Palestinian-American poet whose work brings the daily, the kind, and the particular into focus. Onions, neighbors, kindness. She is a steady voice for a tender world.</p>
+  <p class="author-quote">Before you know what kindness really is, you must lose things.</p>
+</div>
+
+<div class="author">
+  <h3 class="author-name">Nayyirah Waheed</h3>
+  <p class="author-meta">Reclusive poet · salt., Nejma</p>
+  <p class="author-bio">Reclusive poet whose minimalist verse on softness, the body, and Black womanhood made permission a literary form. Her one-line poems are small, sharp lights.</p>
+  <p class="author-quote">I am mine before I am ever anyone else's.</p>
+</div>
+
+<div class="author">
+  <h3 class="author-name">Ocean Vuong</h3>
+  <p class="author-meta">Vietnamese-American poet · NYU</p>
+  <p class="author-bio">Vietnamese-American poet whose work grieves and tenders queer immigrant life into language. He writes the body as a site of survival and beauty.</p>
+  <p class="author-quote">Too much joy, I swear, is lost in our desperation to keep it.</p>
+</div>
+
+<div class="author">
+  <h3 class="author-name">Pema Chödrön</h3>
+  <p class="author-meta">American Tibetan Buddhist nun · Gampo Abbey, Nova Scotia</p>
+  <p class="author-bio">American Tibetan Buddhist nun whose teaching on groundlessness and self-compassion has steadied millions through hard times. She makes the open heart a practical practice.</p>
+  <p class="author-quote">You are the sky. Everything else, it's just the weather.</p>
+</div>
+
+<div class="author">
+  <h3 class="author-name">Pomnyun Sunim (법륜)</h3>
+  <p class="author-meta">Korean Buddhist teacher · Jungto Society, Seoul</p>
+  <p class="author-bio">Korean Buddhist teacher whose dharma talks bring everyday clarity to suffering, family, and conflict. He teaches that peace is a choice we make, again, today.</p>
+  <p class="author-quote">When you set down the thought that you are right, the conflict disappears.</p>
+</div>
+
+<div class="author">
+  <h3 class="author-name">Resmaa Menakem</h3>
+  <p class="author-meta">Therapist · My Grandmother's Hands · Minneapolis</p>
+  <p class="author-bio">Therapist and trauma worker whose My Grandmother's Hands names the body as the inheritor of historical wounds, and the place healing must happen. He teaches that pace and breath are political.</p>
+  <p class="author-quote">Slow down. Notice. Stay with what is.</p>
+</div>
+
+<div class="author">
+  <h3 class="author-name">Robin Wall Kimmerer</h3>
+  <p class="author-meta">Citizen Potawatomi Nation · botanist, SUNY-ESF</p>
+  <p class="author-bio">Botanist and writer who weaves Indigenous knowledge with plant science to teach reciprocity with the living world. Her work makes gratitude a practice with hands in the soil.</p>
+  <p class="author-quote">All flourishing is mutual.</p>
+</div>
+
+<div class="author">
+  <h3 class="author-name">Ross Gay</h3>
+  <p class="author-meta">Poet · The Book of Delights, Inciting Joy</p>
+  <p class="author-bio">Poet of the small daily delight, whose essays on gardens, friendship, and Black joy practice gratitude as a discipline. He insists that noticing pleasure is itself a form of resistance.</p>
+  <p class="author-quote">My delight grows, as does my mindfulness, my attention, my will to wonder.</p>
+</div>
+
+<div class="author">
+  <h3 class="author-name">Saeed Jones</h3>
+  <p class="author-meta">Black queer poet and memoirist · How We Fight for Our Lives</p>
+  <p class="author-bio">Black queer poet and memoirist whose work makes Southern boyhood and queer becoming into music. He writes the wound and the laughter in the same line.</p>
+  <p class="author-quote">Living takes practice.</p>
+</div>
+
+<div class="author">
+  <h3 class="author-name">Saidiya Hartman</h3>
+  <p class="author-meta">Scholar · Wayward Lives, Beautiful Experiments · Columbia</p>
+  <p class="author-bio">Scholar whose critical fabulation honors the inner lives of Black women erased from the archive. Her writing makes remembering a form of love.</p>
+  <p class="author-quote">Care is the antidote to violence.</p>
+</div>
+
+<div class="author">
+  <h3 class="author-name">Sandra Cisneros</h3>
+  <p class="author-meta">Chicana writer · The House on Mango Street · San Miguel de Allende</p>
+  <p class="author-bio">Chicana writer whose lyrical fiction made small houses, mothers, and Mexican-American girlhood the center of American literature. She writes home back into existence.</p>
+  <p class="author-quote">Each time it's the same and not the same.</p>
+</div>
+
+<div class="author">
+  <h3 class="author-name">Sonia Sanchez</h3>
+  <p class="author-meta">Black Arts Movement poet · Philadelphia</p>
+  <p class="author-bio">Black Arts Movement poet whose haiku and longer work braid breath, blues, and peace activism. She teaches that softness can be radical and that listening is its own song.</p>
+  <p class="author-quote">Peace is a full time job.</p>
+</div>
+
+<div class="author">
+  <h3 class="author-name">Tracy K. Smith</h3>
+  <p class="author-meta">Former U.S. Poet Laureate · Princeton / Harvard</p>
+  <p class="author-bio">Former U.S. Poet Laureate whose poems listen for the cosmic in the domestic and the holy in the ordinary. Her work is an invitation to wonder.</p>
+  <p class="author-quote">We like to think of it as parallel to what we know, only bigger.</p>
+</div>
+
+<div class="author">
+  <h3 class="author-name">Tricia Hersey</h3>
+  <p class="author-meta">Founder, The Nap Ministry · rest as reparations</p>
+  <p class="author-bio">Founder of The Nap Ministry, theologian of rest who reclaims sleep and slowness as reparations and resistance. Her gospel: you were not made to be useful, you were made.</p>
+  <p class="author-quote">Our deepest truths arrive in moments of rest.</p>
+</div>
+
+<div class="author">
+  <h3 class="author-name">Yoko Ono</h3>
+  <p class="author-meta">Conceptual artist and peace worker · New York</p>
+  <p class="author-bio">Conceptual artist and peace worker whose instruction pieces invite the reader to imagine, breathe, and bless. Her work has always been a quiet, persistent yes.</p>
+  <p class="author-quote">A dream you dream alone is only a dream. A dream you dream together is reality.</p>
+</div>
+
+<div class="author">
+  <h3 class="author-name">Yung Pueblo (Diego Perez)</h3>
+  <p class="author-meta">Ecuadorian-American writer · Inward, Clarity &amp; Connection</p>
+  <p class="author-bio">Ecuadorian-American writer whose meditative aphorisms on healing, letting go, and returning to oneself reach millions. He writes the gentle reminder we forgot we needed.</p>
+  <p class="author-quote">Peace is the most valuable thing I own.</p>
+</div>
+
+<div class="section-header">
+  <h2>In Memoriam</h2>
+  <p class="desc">Voices whose work continues without them. We close one minute a day with their words, and offer them this small bow of thanks.</p>
+</div>
+
+<div class="memoriam">
+
+<div class="author">
+  <h3 class="author-name">Andrea Gibson</h3>
+  <p class="author-meta">d. 2025 · genderqueer poet</p>
+  <p class="author-bio">Andrea wrote the open heart as a place of arrival. Their poems on love, gender, and survival made tenderness a kind of weather one chooses to live inside. We are warmer for them.</p>
+  <p class="author-quote">I will love you, with no need of an apology.</p>
+</div>
+
+<div class="author">
+  <h3 class="author-name">Audre Lorde</h3>
+  <p class="author-meta">1934 to 1992 · Black lesbian feminist poet</p>
+  <p class="author-bio">Audre Lorde named self preservation as political warfare and gave generations permission to soften without apology. Her silences are the ones that taught us to speak. Her care is the inheritance.</p>
+  <p class="author-quote">There are so many silences to be broken.</p>
+</div>
+
+<div class="author">
+  <h3 class="author-name">Aunty Edith Kanakaʻole</h3>
+  <p class="author-meta">1913 to 1979 · Native Hawaiian hula master</p>
+  <p class="author-bio">Aunty Edith carried the rhythm of Pele and the breath of the ʻāina in her chants. Her voice is the living voice of aloha ʻāina, and her teaching feeds those who would listen still.</p>
+  <p class="author-quote">ʻĀina is that which feeds.</p>
+</div>
+
+<div class="author">
+  <h3 class="author-name">Aunty Pilahi Paki</h3>
+  <p class="author-meta">d. 1985 · Native Hawaiian cultural keeper of Aloha</p>
+  <p class="author-bio">Aunty Pilahi Paki taught aloha as a living covenant. Breath, presence, shared spirit. The Aloha Spirit in Hawaiʻi state law is her gift to those who would know what aloha truly means.</p>
+  <p class="author-quote">Aloha. The breath of life shared.</p>
+</div>
+
+<div class="author">
+  <h3 class="author-name">Baruch Spinoza</h3>
+  <p class="author-meta">1632 to 1677 · Dutch Jewish philosopher</p>
+  <p class="author-bio">Spinoza taught that joy is the increase of our power to live, and that understanding is a form of love. His ethics is a slow, geometric devotion. Three centuries later, it still steadies the reader.</p>
+  <p class="author-quote">All things excellent are as difficult as they are rare.</p>
+</div>
+
+<div class="author">
+  <h3 class="author-name">bell hooks</h3>
+  <p class="author-meta">1952 to 2021 · cultural critic and teacher</p>
+  <p class="author-bio">bell hooks insisted that love is a practice, disciplined and ordinary, and that this practice is how we end domination. Her writing made tenderness an intellectual stance. We are still learning from her.</p>
+  <p class="author-quote">Knowing how to be solitary is central to the art of loving.</p>
+</div>
+
+<div class="author">
+  <h3 class="author-name">Beopjeong Sunim (법정 스님)</h3>
+  <p class="author-meta">1932 to 2010 · Korean Buddhist monk</p>
+  <p class="author-bio">Beopjeong Sunim made simplicity a path of joy. His essays on mu-soyu, non-possession, are a quiet hand on the shoulder of anyone carrying too much. He asked his books be allowed to go out of print, and so we hold them with extra care.</p>
+  <p class="author-quote">Non-possession does not mean having nothing. It means not having what is unnecessary.</p>
+</div>
+
+<div class="author">
+  <h3 class="author-name">Bhagavad Gita</h3>
+  <p class="author-meta">c. 2nd century BCE to 2nd century CE · Sanskrit devotional dialogue</p>
+  <p class="author-bio">In the Gita, Krishna teaches Arjuna that action without attachment is a form of love. It has been a contemplative companion for two millennia, and it remains a steady voice for anyone who would set down the fruit and keep the work.</p>
+  <p class="author-quote">Set your heart upon your work, but never on its reward.</p>
+</div>
+
+<div class="author">
+  <h3 class="author-name">Black Elk (Heȟáka Sápa)</h3>
+  <p class="author-meta">1863 to 1950 · Oglala Lakota holy man</p>
+  <p class="author-bio">Black Elk's visions opened a window into Lakota cosmology for a wider world. His witness teaches that the sacred hoop holds all peoples, and that everything done in the world is done in a circle.</p>
+  <p class="author-quote">Everything the Power of the World does is done in a circle.</p>
+</div>
+
+<div class="author">
+  <h3 class="author-name">Dhammapada</h3>
+  <p class="author-meta">c. 3rd century BCE · Pali canon</p>
+  <p class="author-bio">The Dhammapada has guided practitioners for over two millennia. Its image rich teaching on mind, anger, and gentleness sits in the hand like a small lamp. The eternal rule is still the eternal rule.</p>
+  <p class="author-quote">Hatred does not cease by hatred, but only by love. This is the eternal rule.</p>
+</div>
+
+<div class="author">
+  <h3 class="author-name">Dōgen Zenji (道元禅師)</h3>
+  <p class="author-meta">1200 to 1253 · Japanese Sōtō Zen founder</p>
+  <p class="author-bio">Dōgen taught that practice and enlightenment are not two. His Shōbōgenzō is the act of sitting itself, set into language. Eight centuries on, his sentences remain a doorway home.</p>
+  <p class="author-quote">Enlightenment is intimacy with all things.</p>
+</div>
+
+<div class="author">
+  <h3 class="author-name">Etel Adnan</h3>
+  <p class="author-meta">1925 to 2021 · Lebanese-American poet and painter</p>
+  <p class="author-bio">Etel Adnan contemplated the mountain, the sea, and the slow weather of the soul. Her sentences were landscapes. To read her is to be looked at gently by a wise old friend.</p>
+  <p class="author-quote">To be is also to be in love.</p>
+</div>
+
+<div class="author">
+  <h3 class="author-name">Etty Hillesum</h3>
+  <p class="author-meta">1914 to 1943 · Dutch Jewish diarist</p>
+  <p class="author-bio">Etty kept her diaries until her death at Auschwitz. She practiced beauty and presence in unimaginable circumstances and left a quiet vow that the inner life cannot be taken. Her well still holds water.</p>
+  <p class="author-quote">Despite everything, life is full of beauty and meaning.</p>
+</div>
+
+<div class="author">
+  <h3 class="author-name">Frederick Douglass</h3>
+  <p class="author-meta">c. 1818 to 1895 · abolitionist orator and writer</p>
+  <p class="author-bio">Frederick Douglass made dignity, literacy, and freedom inseparable. He prayed with his legs and walked into history. His witness still steadies those who refuse to look away.</p>
+  <p class="author-quote">I prayed for freedom for twenty years, but received no answer until I prayed with my legs.</p>
+</div>
+
+<div class="author">
+  <h3 class="author-name">Gloria Anzaldúa</h3>
+  <p class="author-meta">1942 to 2004 · Chicana lesbian theorist</p>
+  <p class="author-bio">Gloria Anzaldúa gave language to mestiza consciousness, a way of holding multiple worlds at once with tenderness. She made the borderland a sacred place. Wherever we go, we carry home on our backs because she said we could.</p>
+  <p class="author-quote">I change myself, I change the world.</p>
+</div>
+
+<div class="author">
+  <h3 class="author-name">Gwendolyn Brooks</h3>
+  <p class="author-meta">1917 to 2000 · Pulitzer-winning Chicago poet</p>
+  <p class="author-bio">Gwendolyn Brooks wrote with respect for what is small and alive. Children, kitchens, hair. She made the South Side of Chicago the center of American poetry, and gave us the along to live in.</p>
+  <p class="author-quote">Live not for battles won. Live not for the end of the song. Live in the along.</p>
+</div>
+
+<div class="author">
+  <h3 class="author-name">Han Yongun (만해 한용운)</h3>
+  <p class="author-meta">1879 to 1944 · Korean Buddhist monk and independence activist</p>
+  <p class="author-bio">Han Yongun bound love, freedom, and silence into devotional verse. His poems are stillness as resistance, and longing as a form of country. The beloved is gone, and yet the beloved keeps coming back.</p>
+  <p class="author-quote">Because I love, I leave you.</p>
+</div>
+
+<div class="author">
+  <h3 class="author-name">Haunani-Kay Trask</h3>
+  <p class="author-meta">1949 to 2021 · Native Hawaiian scholar and poet</p>
+  <p class="author-bio">Haunani-Kay Trask returned Hawaiian sovereignty to the public conversation and wrote love for the land as a political force. Her chant for the ʻāina is still being sung.</p>
+  <p class="author-quote">From a Native daughter, a chant for the land.</p>
+</div>
+
+<div class="author">
+  <h3 class="author-name">Howard Thurman</h3>
+  <p class="author-meta">1899 to 1981 · theologian and mystic</p>
+  <p class="author-bio">Howard Thurman mentored civil rights leaders in the practice of stillness. He believed the work of justice begins in the quiet listening of the inner life, and he gave generations the inward sea.</p>
+  <p class="author-quote">There is in every person an inward sea, and in that sea there is an island.</p>
+</div>
+
+<div class="author">
+  <h3 class="author-name">Ida B. Wells</h3>
+  <p class="author-meta">1862 to 1931 · Chicago investigative journalist</p>
+  <p class="author-bio">Ida B. Wells held this country to its own claimed values. Her witness is steadied by the weight of what she would not look away from. We turn the light because she taught us how.</p>
+  <p class="author-quote">The way to right wrongs is to turn the light of truth upon them.</p>
+</div>
+
+<div class="author">
+  <h3 class="author-name">James Baldwin</h3>
+  <p class="author-meta">1924 to 1987 · essayist and novelist</p>
+  <p class="author-bio">James Baldwin held love as a fierce, clear eyed witness against the lies of empire and the lies we tell ourselves. He taught that to love is to insist on the other person's full humanity. We are part of each other because he said so.</p>
+  <p class="author-quote">We are part of each other.</p>
+</div>
+
+<div class="author">
+  <h3 class="author-name">June Jordan</h3>
+  <p class="author-meta">1936 to 2002 · poet, essayist, teacher</p>
+  <p class="author-bio">June Jordan insisted that love and Black life are political acts of imagination. She wrote with a fierce gentleness that taught readers to claim their own lives. We are the ones we have been waiting for, and she said it first.</p>
+  <p class="author-quote">We are the ones we have been waiting for.</p>
+</div>
+
+<div class="author">
+  <h3 class="author-name">Kabir</h3>
+  <p class="author-meta">15th century · Indian mystic poet · trans. Tagore (1915)</p>
+  <p class="author-bio">Kabir refused caste and religious division and spoke of the divine within ordinary breath. His doha is a doorway: the garden you seek is in the body you already have.</p>
+  <p class="author-quote">In your body is the garden of flowers.</p>
+</div>
+
+<div class="author">
+  <h3 class="author-name">Kahlil Gibran</h3>
+  <p class="author-meta">1883 to 1931 · Lebanese-American poet · The Prophet</p>
+  <p class="author-bio">Kahlil Gibran offered devotional, image rich counsel on love, work, and grief. His writing is a hand offered across the silence. A century later it is still a hand we accept.</p>
+  <p class="author-quote">Work is love made visible.</p>
+</div>
+
+<div class="author">
+  <h3 class="author-name">Kim Sowŏl (김소월)</h3>
+  <p class="author-meta">1902 to 1934 · early twentieth century Korean poet</p>
+  <p class="author-bio">Kim Sowŏl made longing the music of the Korean language. His folk rooted lyrics are quiet doors held open. The azaleas of Mount Yaksan are still scattered on the path.</p>
+  <p class="author-quote">When you go away, weary of seeing me, I will let you go in silence, with care.</p>
+</div>
+
+<div class="author">
+  <h3 class="author-name">Kobayashi Issa (小林一茶)</h3>
+  <p class="author-meta">1763 to 1828 · Japanese haiku poet · trans. Robert Hass</p>
+  <p class="author-bio">Issa held creatures, weather, and grief with humble warmth. His poems are small candles for the small lives. The snail still climbs Mount Fuji, slowly, slowly.</p>
+  <p class="author-quote">O snail, climb Mount Fuji, but slowly, slowly.</p>
+</div>
+
+<div class="author">
+  <h3 class="author-name">Langston Hughes</h3>
+  <p class="author-meta">1901 to 1967 · Harlem Renaissance poet</p>
+  <p class="author-bio">Langston Hughes set Black daily life to the rhythm of blues and jazz, and made dreams a public, shared inheritance. His work returns the reader to the music of ordinary hope.</p>
+  <p class="author-quote">I, too, sing America.</p>
+</div>
+
+<div class="author">
+  <h3 class="author-name">Lao Tzu · Tao Te Ching</h3>
+  <p class="author-meta">c. 4th century BCE · trans. Stephen Mitchell (1988)</p>
+  <p class="author-bio">The Tao Te Ching has shaped contemplative life for over two millennia. Its teaching on water, softness, and non doing is a quiet hand on the shoulder of the world. Nature does not hurry.</p>
+  <p class="author-quote">Nature does not hurry, yet everything is accomplished.</p>
+</div>
+
+<div class="author">
+  <h3 class="author-name">Lucille Clifton</h3>
+  <p class="author-meta">1936 to 2010 · poet of survived hours</p>
+  <p class="author-bio">Lucille Clifton wrote toward joy as a daily, embodied vow. Her poems blessed the reader with ordinary, hard won life. She has shaped, into a kind of life, the way we celebrate ourselves.</p>
+  <p class="author-quote">Won't you celebrate with me what I have shaped into a kind of life?</p>
+</div>
+
+<div class="author">
+  <h3 class="author-name">Mahmoud Darwish</h3>
+  <p class="author-meta">1941 to 2008 · Palestinian national poet</p>
+  <p class="author-bio">Mahmoud Darwish made longing for the homeland a universal devotional language. He wrote olives, mothers, and exile into the breath of poetry. We have on this earth what makes life worth living because he said so.</p>
+  <p class="author-quote">We have on this earth what makes life worth living.</p>
+</div>
+
+<div class="author">
+  <h3 class="author-name">Marsha P. Johnson</h3>
+  <p class="author-meta">1945 to 1992 · Black trans Stonewall vanguard</p>
+  <p class="author-bio">Marsha gave love away as if she had infinite of it. She taught generations that joy is a form of revolt and that liberation is plural. The mother of Christopher Street walks with us still.</p>
+  <p class="author-quote">Darling, I want my gay rights now.</p>
+</div>
+
+<div class="author">
+  <h3 class="author-name">Mary Kawena Pukui · ʻŌlelo Noʻeau</h3>
+  <p class="author-meta">1895 to 1986 · Bishop Museum Press</p>
+  <p class="author-bio">Mary Kawena Pukui compiled and translated 2,927 Hawaiian proverbs and poetical sayings, preserving the breath of the ancestors in the printed word. Hush holds seven of these. Each is a pebble of light.</p>
+  <p class="author-quote">Pūpūkahi i holomua. Unite to move forward.</p>
+</div>
+
+<div class="author">
+  <h3 class="author-name">Matsuo Bashō (松尾芭蕉)</h3>
+  <p class="author-meta">1644 to 1694 · Japanese haiku master · trans. Robert Hass</p>
+  <p class="author-bio">Bashō refined haiku into a vessel for momentary, weather true presence. His verse is the breath of the season passing through. Every day is a journey, and the journey itself is home.</p>
+  <p class="author-quote">Every day is a journey, and the journey itself is home.</p>
+</div>
+
+<div class="author">
+  <h3 class="author-name">Maya Angelou</h3>
+  <p class="author-meta">1928 to 2014 · poet and memoirist</p>
+  <p class="author-bio">Maya Angelou carried the dignity of the survivor and the laughter of someone who refused bitterness. She gave Black girlhood a public language of tenderness and rise. Still she rises, in all of us.</p>
+  <p class="author-quote">Still I rise.</p>
+</div>
+
+<div class="author">
+  <h3 class="author-name">N. Scott Momaday</h3>
+  <p class="author-meta">1934 to 2024 · Kiowa novelist and poet</p>
+  <p class="author-bio">N. Scott Momaday taught that story is how a people remembers itself into being. His writing is an invitation to belong to a place. We are what we imagine, and his imagination is part of ours now.</p>
+  <p class="author-quote">We are what we imagine. Our very existence consists in our imagination of ourselves.</p>
+</div>
+
+<div class="author">
+  <h3 class="author-name">Octavia E. Butler</h3>
+  <p class="author-meta">1947 to 2006 · speculative fiction visionary</p>
+  <p class="author-bio">Octavia Butler imagined survival as a practice of adaptation, kinship, and care. Her Earthseed parables wrote toward futures where Black women shape what comes next. Kindness eases change. So does she.</p>
+  <p class="author-quote">All that you touch you change. All that you change changes you.</p>
+</div>
+
+<div class="author">
+  <h3 class="author-name">Pablo Neruda</h3>
+  <p class="author-meta">1904 to 1973 · Chilean Nobel laureate</p>
+  <p class="author-bio">Pablo Neruda wrote love and ordinary objects with cosmic tenderness. His odes return the reader to onions, socks, and silence with reverence. Rest with your dream in his dream.</p>
+  <p class="author-quote">And now you are mine. Rest with your dream in my dream.</p>
+</div>
+
+<div class="author">
+  <h3 class="author-name">Rabindranath Tagore</h3>
+  <p class="author-meta">1861 to 1941 · Bengali Nobel laureate</p>
+  <p class="author-bio">Tagore set the natural world to song and the soul to a quiet, devotional listening. His poetry is a window left open. The butterfly counts not months but moments, and so does he.</p>
+  <p class="author-quote">The butterfly counts not months but moments, and has time enough.</p>
+</div>
+
+<div class="author">
+  <h3 class="author-name">Rumi (Jalāl ad-Dīn Muhammad Rūmī)</h3>
+  <p class="author-meta">1207 to 1273 · Persian Sufi mystic · trans. Coleman Barks</p>
+  <p class="author-bio">Rumi's poetry of love, longing, and the open heart has been a companion to seekers for eight hundred years. His verses make the breath itself a prayer. The field is still there, beyond ideas.</p>
+  <p class="author-quote">Out beyond ideas of wrongdoing and rightdoing, there is a field. I'll meet you there.</p>
+</div>
+
+<div class="author">
+  <h3 class="author-name">Thich Nhat Hanh (Thầy)</h3>
+  <p class="author-meta">1926 to 2022 · Vietnamese Zen teacher</p>
+  <p class="author-bio">Thầy brought engaged Buddhism to the world. His teaching on the present moment as a refuge has shaped contemplative practice for millions. His gift is the breath itself, and the smile that follows.</p>
+  <p class="author-quote">Smile, breathe, and go slowly.</p>
+</div>
+
+<div class="author">
+  <h3 class="author-name">Toni Morrison</h3>
+  <p class="author-meta">1931 to 2019 · Nobel laureate</p>
+  <p class="author-bio">Toni Morrison held grief, memory, and Black interior life with a tenderness that taught readers to love themselves out loud. She believed beauty is something we make for one another, especially when the world refuses it. You are your best thing because she said it first.</p>
+  <p class="author-quote">You are your best thing.</p>
+</div>
+
+</div>
+
+<div class="closing">
+  <p class="languages">Mahalo nui loa. 감사합니다. Dank u wel. شكراً جزيلاً.</p>
+  <p>Thank you, all of you, for the words.<br>Thank you for the steadying.<br>Thank you for the breath at the end of the minute.</p>
+</div>
+
+</body>
+</html>

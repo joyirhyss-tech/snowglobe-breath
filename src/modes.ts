@@ -34,6 +34,10 @@ export type ParticlePhysics = {
   twinkleSpeedMul?: number;   // >1 = faster sparkle / catches
   countMul?: number;           // density (rainbow can run more particles)
   hueShift?: boolean;          // shader cycles each particle's hue over time
+  // Per-mode pile shape — each mode gets a unique settled silhouette so the
+  // closing read of the pile is itself a brand cue.
+  pileDepthMul?: number;      // >1 = taller mound (gold), <1 = flatter spread (rainbow)
+  pileWidthMul?: number;      // <1 = concentrated narrow pile (gold), 1.0 = full-width spread (silver/rainbow)
 };
 
 export type AudioPalette = {
@@ -49,6 +53,16 @@ export type AudioPalette = {
   inhaleSampleId: string | null;
   holdSampleId: string | null;
   exhaleSampleId: string | null;
+  // Long looping bed for the entire session — distinct from per-phase
+  // triggers. Silver: water; Gold: chimes; Rainbow: null (the cello-on-
+  // exhale carries the textural layer instead).
+  ambientBedSampleId: string | null;
+  // Per-mode override for the engine fadeOut duration (ms). When unset,
+  // CONFIG.session.audioFadeOutMs (currently 9000) is used. Silver and
+  // Gold use a longer 18000ms fade for a more relaxed ending — the user
+  // experience there is meditative, slower fades feel right. Rainbow
+  // sticks with the default since handpan music has its own pacing.
+  fadeOutMs?: number;
   // Closing audio.
   closingNarrationIds: string[];   // empty = visual quote only
 };
@@ -94,10 +108,16 @@ const SILVER: ModeSpec = {
     inhaleSampleId: null,
     holdSampleId: null,
     exhaleSampleId: null,
+    // Soft lake waves bed — parasympathetic water vibe, pairs with snowglobe identity.
+    ambientBedSampleId: 'silver-water',
+    fadeOutMs: 18_000,           // doubled from default 9s — water fades more gently into the closing quote
     closingNarrationIds: [],
   },
-  // Silver = baseline. No physics overrides.
-  physics: {},
+  // Silver = baseline. Subtle drift-snow pile: full-width, modest depth.
+  physics: {
+    pileDepthMul: 1.0,
+    pileWidthMul: 0.95,         // slightly inset from rim — clean drift silhouette
+  },
   closing: 'quote',
 };
 
@@ -126,16 +146,28 @@ const GOLD: ModeSpec = {
     droneInhaleGain: 0.25,
     droneExhaleGain: 0.08,
     inhaleSampleId: null,
-    holdSampleId: 'singing-bowl',   // soft bowl strike at hold transitions
+    holdSampleId: null,             // bowl removed — chimes bed carries the marker character
     exhaleSampleId: null,
+    // Wind chimes + light rain bed — bell-like grounded focus, anchors box breathing.
+    ambientBedSampleId: 'gold-chimes',
+    fadeOutMs: 18_000,              // doubled from default 9s — chimes ring out more gently
     closingNarrationIds: [],
   },
-  // Gold: heavier, slower, more grounded. Particles fall with intention.
+  // Gold: heaviest of the three modes. Grounding intent → particles fall
+  // with committed weight. sinkRateMul was previously inverted (0.85 =
+  // SLOWER fall = lighter feel, contradicting the "grounded" label); now
+  // 1.15 = ~15% faster fall than silver baseline. Curl reduced for less
+  // drift; size up for bulk presence; twinkle slow for steadiness.
+  // sizeMul 1.18 → 1.35: lighter bg (#48403e) needed bigger gold catches
+  // to read with the same shimmer/wow against more luminous backdrop.
   physics: {
-    sinkRateMul: 0.85,
+    sinkRateMul: 1.15,
     curlStrengthMul: 0.7,
-    sizeMul: 1.18,
+    sizeMul: 1.35,
     twinkleSpeedMul: 0.7,
+    // Gold pile = tall, narrow, dense mound. Reads as a substantial heap.
+    pileDepthMul: 1.20,
+    pileWidthMul: 0.78,
   },
   closing: 'quote',
 };
@@ -167,21 +199,34 @@ const RAINBOW: ModeSpec = {
     droneExhaleGain: 0.06,
     inhaleSampleId: null,
     holdSampleId: null,
-    exhaleSampleId: 'cello-bow',    // sustained cello on exhale
+    exhaleSampleId: null,                  // 2026-04-27: per-exhale strings pad replaced by handpan-music ambient bed
+    ambientBedSampleId: 'rainbow-handpan', // handpan music as continuous bed; carries the joy/opening character
     closingNarrationIds: [
       // Will be populated with the user's recorded poems.
       // For now, closing falls back to visual quote until audio is recorded.
     ],
   },
-  // Rainbow: lighter, more dynamic, more particles, hue cycles over time
-  // — the wow-factor mode.
+  // Rainbow: still the most dynamic mode (more curl, more twinkle, more
+  // particles, hue-cycling) but no longer floaty. sinkRateMul was 0.7
+  // (much slower fall = lighter feel); now 0.95 — close to silver baseline
+  // so fines still finish at 60s, but the mode keeps its distinct
+  // wow-factor identity through curl and density, not buoyancy.
+  // curlStrengthMul nudged 1.4 → 1.25 for the same reason.
+  // sizeMul bumped 0.88 → 1.1: prismatic catches were reading too small
+  // against the smoky grey backdrop during the burst/flutter phase. 25%
+  // size increase makes each catch carry more visual weight without
+  // tipping into chunky.
   physics: {
-    sinkRateMul: 0.7,
-    curlStrengthMul: 1.4,
-    sizeMul: 0.88,
+    sinkRateMul: 0.95,
+    curlStrengthMul: 1.25,
+    sizeMul: 1.1,
     twinkleSpeedMul: 1.3,
     countMul: 1.15,
     hueShift: true,
+    // Rainbow pile = flat, wide spread. Reads as scattered prismatic dust
+    // across the floor rather than a heap — fits the "expansion" intent.
+    pileDepthMul: 0.82,
+    pileWidthMul: 1.0,
   },
   closing: 'poem-audio',
 };

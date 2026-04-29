@@ -59,6 +59,28 @@ or a real device.
 
 ## iOS-specific configuration to do once
 
+### Disable iOS Shake to Undo (so the system alert doesn't intercept shakes)
+
+iOS shows a "Shake to Undo" prompt globally when users shake the device — this
+intercepts our shake-to-start gesture and replaces it with the system's
+typing-undo dialog. Web Hush on Safari has the same problem; on the native
+build we can opt out explicitly so end users don't have to disable the
+accessibility setting themselves.
+
+In `ios/App/App/AppDelegate.swift`, add **one line** to `application(_:didFinishLaunchingWithOptions:)`:
+
+```swift
+func application(_ application: UIApplication,
+                 didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]? = nil) -> Bool {
+    application.applicationSupportsShakeToEdit = false   // ← add this
+    return true
+}
+```
+
+This disables the OS-level shake-to-undo for our app only. Capacitor's
+@capacitor/motion plugin still receives accelerometer samples normally
+through CoreMotion — only the system UI alert is suppressed.
+
 ### Info.plist additions
 
 The Capacitor Motion plugin reads accelerometer data. iOS requires a usage
@@ -70,8 +92,190 @@ Store reviewer checks the value). In `ios/App/App/Info.plist` add:
 <string>Hush uses motion to detect when you shake your phone, starting a 60-second breath practice.</string>
 ```
 
-(If `cap add ios` doesn't include this automatically, add it before first
+For HealthKit (Mindful Minutes write), add **both** of these — even though
+we only write data, Apple requires both keys to be present:
+
+```xml
+<key>NSHealthShareUsageDescription</key>
+<string>Hush does not read any health data.</string>
+<key>NSHealthUpdateUsageDescription</key>
+<string>Hush saves each completed breath session to Apple Health as Mindful Minutes, so you can see your practice in the Health app.</string>
+```
+
+(If `cap add ios` doesn't include these automatically, add them before first
 submission.)
+
+---
+
+### HealthKit capability + entitlement
+
+In Xcode, with the `App` target selected:
+
+1. Click **Signing & Capabilities** tab
+2. Click **+ Capability** in the toolbar
+3. Choose **HealthKit**
+4. Leave the "Clinical Health Records" checkbox **unchecked** — Hush only
+   writes Mindful Sessions, not clinical records
+
+Xcode will create `ios/App/App/App.entitlements` containing:
+
+```xml
+<key>com.apple.developer.healthkit</key>
+<true/>
+<key>com.apple.developer.healthkit.access</key>
+<array/>
+```
+
+Commit this file alongside the rest of the iOS project.
+
+---
+
+### Native HealthKit plugin (Swift)
+
+Hush ships a small custom Capacitor plugin called `HushHealth` for writing
+Mindful Session samples. The JS side is already in
+`src/platform/healthkit.ts`. The native side is two Swift files you paste
+into the Xcode project once after `npx cap add ios`.
+
+**Step 1 — create the folder:**
+
+```bash
+mkdir -p ios/App/App/Plugins
+```
+
+**Step 2 — create `ios/App/App/Plugins/HushHealth.swift`:**
+
+```swift
+import Foundation
+import Capacitor
+import HealthKit
+
+// HushHealth — minimal HealthKit bridge for writing Mindful Session
+// samples. Read access is not requested; we only ever write. iOS still
+// requires NSHealthShareUsageDescription to be present in Info.plist.
+@objc(HushHealthPlugin)
+public class HushHealthPlugin: CAPPlugin, CAPBridgedPlugin {
+    public let identifier = "HushHealthPlugin"
+    public let jsName = "HushHealth"
+    public let pluginMethods: [CAPPluginMethod] = [
+        CAPPluginMethod(name: "isAvailable",          returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "requestAuthorization", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "writeMindfulSession",  returnType: CAPPluginReturnPromise),
+    ]
+
+    private let healthStore = HKHealthStore()
+
+    @objc func isAvailable(_ call: CAPPluginCall) {
+        call.resolve(["available": HKHealthStore.isHealthDataAvailable()])
+    }
+
+    @objc func requestAuthorization(_ call: CAPPluginCall) {
+        guard HKHealthStore.isHealthDataAvailable() else {
+            call.resolve(["granted": false])
+            return
+        }
+        guard let mindful = HKObjectType.categoryType(forIdentifier: .mindfulSession) else {
+            call.resolve(["granted": false])
+            return
+        }
+        // We only request write (share) access — Hush never reads.
+        healthStore.requestAuthorization(toShare: [mindful], read: nil) { success, error in
+            if let error = error {
+                call.reject("HealthKit auth failed: \(error.localizedDescription)")
+                return
+            }
+            // Note: on iOS, success=true means "the prompt completed" — not
+            // that the user said yes. We can't reliably detect refusal for
+            // write-only access, so we optimistically return granted=true
+            // and let the writeMindfulSession call fail silently if denied.
+            call.resolve(["granted": success])
+        }
+    }
+
+    @objc func writeMindfulSession(_ call: CAPPluginCall) {
+        guard let startMs = call.getDouble("startMs"),
+              let endMs   = call.getDouble("endMs") else {
+            call.reject("startMs and endMs required")
+            return
+        }
+        guard HKHealthStore.isHealthDataAvailable() else {
+            call.resolve(["saved": false])
+            return
+        }
+        guard let mindful = HKObjectType.categoryType(forIdentifier: .mindfulSession) else {
+            call.resolve(["saved": false])
+            return
+        }
+        let start = Date(timeIntervalSince1970: startMs / 1000.0)
+        let end   = Date(timeIntervalSince1970: endMs   / 1000.0)
+        let sample = HKCategorySample(
+            type: mindful,
+            value: HKCategoryValue.notApplicable.rawValue,
+            start: start,
+            end: end
+        )
+        healthStore.save(sample) { success, error in
+            if let error = error {
+                // Don't reject — the breath practice itself completed. Log
+                // and report saved=false so JS can decide what to do.
+                print("[HushHealth] save failed: \(error.localizedDescription)")
+                call.resolve(["saved": false])
+                return
+            }
+            call.resolve(["saved": success])
+        }
+    }
+}
+```
+
+**Step 3 — add `HushHealth.m`** in the same `Plugins` folder so the plugin is
+discovered at runtime by Capacitor's Objective-C registration:
+
+```objc
+#import <Foundation/Foundation.h>
+#import <Capacitor/Capacitor.h>
+
+CAP_PLUGIN(HushHealthPlugin, "HushHealth",
+    CAP_PLUGIN_METHOD(isAvailable,          CAPPluginReturnPromise);
+    CAP_PLUGIN_METHOD(requestAuthorization, CAPPluginReturnPromise);
+    CAP_PLUGIN_METHOD(writeMindfulSession,  CAPPluginReturnPromise);
+)
+```
+
+**Step 4 — add HealthKit framework to the project:**
+
+In Xcode: target **App** → **General** tab → **Frameworks, Libraries, and
+Embedded Content** → click **+** → search **HealthKit** → select
+**HealthKit.framework** → set to **Do Not Embed**.
+
+(Modern Xcode usually auto-links HealthKit when you add the capability in
+step 2, but verify here if you see a "no such module 'HealthKit'" error.)
+
+**Step 5 — clean build & run:**
+
+```bash
+npm run build && npx cap sync ios && npx cap open ios
+```
+
+Then in Xcode: **Product** → **Clean Build Folder** (Shift+Cmd+K) → run on a
+simulator first, then on a real device. The Mindful Minutes write requires
+a real device or a simulator with the Health app available.
+
+---
+
+### Verifying the HealthKit integration
+
+1. Run Hush on a device.
+2. Open **Settings** → scroll to **Apple Health** → tap **On**.
+3. iOS shows the system Health share sheet — toggle "Mindful Sessions" to
+   **on** when prompted, then tap **Allow**.
+4. Tap to start a session. Wait the full 60 seconds for it to complete.
+5. Open the **Health** app on the same device → **Browse** → **Mindfulness**
+   → **Show All Data**. Hush's session should appear with the correct
+   start time, end time, and source ("Hush").
+6. Run a second session. Verify a second entry appears.
+7. To revoke: **Settings → Health → Data Access & Devices → Hush**, toggle
+   off **Mindful Sessions**.
 
 ### Status bar + safe areas
 
@@ -86,9 +290,31 @@ you'll want a custom splash matching the Hush identity. Replace
 
 ### App icon
 
-Drop a 1024×1024 PNG (no transparency, no rounded corners — iOS rounds them
-automatically) into `ios/App/App/Assets.xcassets/AppIcon.appiconset/`. Use
-`xcrun simctl --set previews-app icon` or just paste in Xcode.
+You design **one** 1024×1024 master PNG (in Canva, Figma, etc.). Constraints:
+- **Exactly 1024×1024 pixels**
+- **PNG**, **no transparency** (iOS rejects transparent icons)
+- **No rounded corners** in the design — iOS adds them automatically
+- **No padding for safe areas** — fill the whole canvas
+
+Then run the bundled generator from the project root:
+
+```bash
+./scripts/gen-icons.sh ~/Desktop/hush-icon-1024.png
+```
+
+It uses macOS-native `sips` to write all 15 sizes Xcode needs into
+`ios/App/App/Assets.xcassets/AppIcon.appiconset/` plus the matching
+`Contents.json`. After the script finishes:
+
+```bash
+npm run build && npx cap sync ios
+```
+
+Verify in Xcode → **App** → **Assets.xcassets** → **AppIcon**. Each slot
+should show your icon at the right size with no warnings.
+
+**To re-run after a design change**: just run the script again. It overwrites
+all 15 files and the `Contents.json` so revisions are clean.
 
 ---
 
@@ -132,7 +358,7 @@ Before submitting:
 - [ ] Audio plays in all three modes (with samples in `public/audio/`)
 - [ ] Shake detection works on a real device (CoreMotion via Capacitor)
 - [ ] Tap-to-start works on iPad simulator (no shake there)
-- [ ] HealthKit Mindful Minutes write — to be added in Phase 3
+- [ ] HealthKit Mindful Minutes write — Swift plugin pasted in, capability enabled in Xcode, `NSHealthShareUsageDescription` + `NSHealthUpdateUsageDescription` in Info.plist, verified on device
 - [ ] Apple Developer Program enrolled
 - [ ] Apple Small Business Program enrolled (15% commission)
 - [ ] App Store Connect record created

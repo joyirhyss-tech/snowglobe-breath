@@ -33,4 +33,16 @@ export const nl: Translations = {
   displayWords: 'Woorden',
   displayCountdown: 'Aftellen',
   displaySilent: 'Stil',
+  narration: 'Vertelling',
+  narrationDescription: 'Systeemstem leest het slotcitaat voor',
+  appleHealth: 'Apple Gezondheid',     // matches Apple iOS NL string for the Health app
+  appleHealthDescription: 'Sla elke voltooide sessie op als Mindful Minuten',
+  about: 'Over',
+  aboutMission: 'Hush wordt gemaakt door TPC | AEQ — een praktijk die tools bouwt waarin zorg, gelijkwaardigheid en menselijk welzijn centraal staan in alledaagse technologie.',
+  aboutPrivacy: 'Privacy: alles blijft op je apparaat. Geen accounts, geen tracking, geen analytics. Feedback die je stuurt vermeldt de actieve modus maar geen persoonlijke informatie.',
+  madeBy: 'Gemaakt door',
+  aboutFounderLabel: 'Over de oprichter',
+  founderBio: 'JoYi Rhyss richtte TPC | AEQ op om tools te bouwen die zorg, gelijkwaardigheid en menselijk welzijn centraal stellen in alledaagse technologie.',
+  tellRoo: 'Roo iets vertellen',
+  aboutTechnique: 'Over deze techniek',
 };

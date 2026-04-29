@@ -58,6 +58,11 @@ export function useAudio({ enabled, mode, sessionPhase, elapsedMs, phases }: Arg
           await engine.start();
           engine.setMode(mode);
           engine.setEnabled(enabled);
+          // Start the per-mode ambient bed (silver: water, gold: chimes).
+          // Rainbow has no bed — its strings-on-exhale carries the texture.
+          if (mode.audio.ambientBedSampleId) {
+            await engine.startAmbientBed(mode.audio.ambientBedSampleId, 1500);
+          }
         } catch (err) {
           // eslint-disable-next-line no-console
           console.warn('[Hush audio] failed to start', err);
@@ -66,14 +71,20 @@ export function useAudio({ enabled, mode, sessionPhase, elapsedMs, phases }: Arg
     }
 
     if (sessionPhase === 'ending' && sessionStartedRef.current) {
-      engine.fadeOut(CONFIG.session.fadeOutMs);
+      // Per-mode fade override (silver/gold use a doubled 18s fade for a
+      // more relaxed ending). Falls back to the global default for modes
+      // that don't override (currently rainbow at 9s).
+      const fadeMs = mode.audio.fadeOutMs ?? CONFIG.session.audioFadeOutMs;
+      engine.fadeOut(fadeMs);
     }
 
     if (sessionPhase === 'idle' || sessionPhase === 'done') {
       // Mark engine "between sessions" so the next active flips re-init the
-      // drone gain envelope from zero.
+      // drone gain envelope from zero. Also fully stop the bed (fadeOut
+      // already started its tail; this disposes the player).
       sessionStartedRef.current = false;
       lastLabelRef.current = null;
+      engine.stopAmbientBed(800);
     }
   }, [sessionPhase, mode, enabled]);
 

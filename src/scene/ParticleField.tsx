@@ -15,6 +15,11 @@ type Props = {
   // Per-mode physics overrides (multipliers on shared CONFIG.particles).
   // Empty object = silver baseline. Gold and Rainbow override.
   physics?: ParticlePhysics;
+  // Honor `prefers-reduced-motion: reduce`. When true: fewer particles, less
+  // curl, slower twinkle. Doesn't kill the experience — just dampens the
+  // motion amplitudes that can trigger vestibular sensitivity. Heap timing
+  // stays intact so the practice still completes at 60s.
+  reducedMotion?: boolean;
 };
 
 // ── Noise helpers ────────────────────────────────────────────────────────
@@ -166,6 +171,13 @@ const VERT = /* glsl */ `
     tw = max(uTwinkleFloor, min(tw, 1.0));
     tw = mix(tw, 1.0, uShakeFlash * 0.6);
 
+    // Z-depth dimming — particles further back (negative z) read slightly
+    // dimmer and smaller, adding a true 3D depth cue. Range is [-0.25, 0.25]
+    // so we map that to [0.62, 1.0] luminance multiplier. Subtle, but adds
+    // real spatial separation between near and far flakes.
+    float depthFactor = 0.62 + 0.38 * smoothstep(-0.25, 0.25, position.z);
+    tw *= depthFactor;
+
     vTwinkle = tw;
     vRot = aRot + uTime * 0.4;
     vOpacity = uOpacity;
@@ -180,7 +192,8 @@ const VERT = /* glsl */ `
     }
     vColor = col;
 
-    float sizeMul = 1.0 + 0.25 * tw + uShakeFlash * 0.3;
+    // Size also scales with depthFactor — far particles slightly smaller.
+    float sizeMul = (1.0 + 0.25 * tw + uShakeFlash * 0.3) * mix(0.85, 1.0, depthFactor);
     gl_PointSize = aSize * sizeMul * uPixelRatio;
   }
 `;
@@ -204,15 +217,23 @@ const FRAG = /* glsl */ `
   }
 `;
 
-export function ParticleField({ theme, shakeImpulse, elapsedMs, sessionProgress, active, fadeOutProgress, physics }: Props) {
+export function ParticleField({ theme, shakeImpulse, elapsedMs, sessionProgress, active, fadeOutProgress, physics, reducedMotion }: Props) {
   const phys = physics ?? {};
+  // Reduced-motion dampening — chained on top of mode physics multipliers.
+  // Halves count, cuts curl/swirl by 60%, slows twinkle. Doesn't touch
+  // sinkRate or pile shape so the heap still forms on schedule.
+  const rmCount = reducedMotion ? 0.5 : 1;
+  const rmCurl = reducedMotion ? 0.4 : 1;
+  const rmTwinkle = reducedMotion ? 0.55 : 1;
   // Per-mode multipliers. 1.0 = silver baseline.
   const sinkMul = phys.sinkRateMul ?? 1;
-  const curlMul = phys.curlStrengthMul ?? 1;
+  const curlMul = (phys.curlStrengthMul ?? 1) * rmCurl;
   const physSizeMul = phys.sizeMul ?? 1;
-  const twinkleMul = phys.twinkleSpeedMul ?? 1;
-  const countMul = phys.countMul ?? 1;
+  const twinkleMul = (phys.twinkleSpeedMul ?? 1) * rmTwinkle;
+  const countMul = (phys.countMul ?? 1) * rmCount;
   const hueShift = phys.hueShift ?? false;
+  const pileDepthMul = phys.pileDepthMul ?? 1;
+  const pileWidthMul = phys.pileWidthMul ?? 1;
 
   const baseCount = theme.particles.count ?? CONFIG.particles.count;
   const count = Math.round(baseCount * countMul);
@@ -258,17 +279,24 @@ export function ParticleField({ theme, shakeImpulse, elapsedMs, sessionProgress,
     // so the pile shape is preserved no matter where particles drift to.
     const halfW = viewport.width * 0.5;
 
+    // Per-mode pile width: silver/rainbow ~full viewport, gold concentrated.
+    const pileHalfW = halfW * pileWidthMul;
+    const effectivePileDepth = P.pileDepth * pileDepthMul;
+
     for (let i = 0; i < count; i += 1) {
-      // x: random across viewport. Visible pile shape comes from column height.
-      const px = (Math.random() - 0.5) * viewport.width * 0.99;
+      // x: distributed within the per-mode pile width. Narrower for gold so
+      // the mound concentrates in the middle; full-width for silver/rainbow.
+      const px = (Math.random() - 0.5) * 2 * pileHalfW * 0.99;
       positions[i * 3 + 0] = px;
 
       // Per-particle column fraction. Bias toward 0 → denser at the base than
-      // the top, like real settled glitter.
-      const fraction = Math.pow(Math.random(), 1.25);
+      // the top, like real settled glitter. Power bumped 1.25 → 1.6 so a
+      // larger share of particles cluster near the floor — fewer visible
+      // holes through the body of the pile, denser bottom packing.
+      const fraction = Math.pow(Math.random(), 1.6);
       pileColFractions[i] = fraction;
 
-      const colHeight = pileHeightAtX(px, halfW, P.pileDepth);
+      const colHeight = pileHeightAtX(px, pileHalfW, effectivePileDepth);
       positions[i * 3 + 1] = floorY + fraction * colHeight;
       positions[i * 3 + 2] = (Math.random() - 0.5) * 0.5;
 
@@ -288,7 +316,7 @@ export function ParticleField({ theme, shakeImpulse, elapsedMs, sessionProgress,
       sinkRates[i] = sampleLogNormal(P.sinkRateMean, P.sinkRateSigma, skMin, skMax) * sinkMul;
     }
     return { positions, velocities, colors, phases, speeds, rotations, pixelSizes, sinkRates, pileColFractions };
-  }, [count, theme, viewport.width, viewport.height, sizeMul, screen.width, screen.height, twinkleMul, sinkMul]);
+  }, [count, theme, viewport.width, viewport.height, sizeMul, screen.width, screen.height, twinkleMul, sinkMul, pileDepthMul, pileWidthMul]);
 
   // Shake kick: inject velocity from where particles currently rest. No
   // teleport, no redistribution. Particles rise out of the pile and spread
@@ -374,13 +402,18 @@ export function ParticleField({ theme, shakeImpulse, elapsedMs, sessionProgress,
     const viscT = Math.pow(sessionT, P.viscosityCurve);
     const visc = P.viscosityShake + (P.viscositySettle - P.viscosityShake) * viscT;
 
+    // Per-mode pile geometry — must match what we used at spawn time so the
+    // pile is consistent across the session. Capture once outside the loop.
+    const pileHalfWRun = halfW * pileWidthMul;
+    const effectivePileDepthRun = P.pileDepth * pileDepthMul;
+
     for (let i = 0; i < count; i += 1) {
       const ix = i * 3;
       const py = positions[ix + 1];
       // Pile top is computed dynamically from the particle's CURRENT x. This
-      // preserves the triangular pile shape across sessions even if particles
+      // preserves the per-mode pile shape across sessions even if particles
       // drift horizontally during the swirl.
-      const colHeight = pileHeightAtX(positions[ix], halfW, P.pileDepth);
+      const colHeight = pileHeightAtX(positions[ix], pileHalfWRun, effectivePileDepthRun);
       const pileTop = floorY + pileColFractions[i] * colHeight;
       // Velocity-aware settled detection: a particle is "in the pile" only if
       // it's at the floor AND essentially motionless. A fresh shake injects

@@ -1,87 +1,87 @@
 # Hush — Audio Samples
 
-Three samples power the gold and rainbow modes. All three are **Creative
-Commons 0 (public domain)** — no attribution required, free for commercial
-use including App Store distribution. They're sourced from Freesound.org
-because the recordings audited better than Pixabay equivalents on quality
-and license clarity.
+Three samples power the per-mode audio palette. All three sourced from
+**Pixabay** under the **Pixabay Content License** — free for commercial and
+non-commercial use, no attribution required, App Store distribution allowed.
+
+The samples are bundled directly with the app under `public/audio/`.
+Total bundled audio: **~2.0 MB** (mono AAC at 96 kbps).
 
 ## Selected samples
 
 | File | Source | Length | Used by | Why this one |
 |------|--------|--------|---------|--------------|
-| `singing-bowl.ogg` | [Truthiswithin / 193022](https://freesound.org/people/Truthiswithin/sounds/193022/) | 15s | Gold mode hold transitions | 8cm Tibetan bowl, single clean wood-mallet strike, long inharmonic decay. CC0. 1.9k+ downloads, professionally rated. |
-| `cello-bow.ogg` | [carrieedick / 465558](https://freesound.org/people/carrieedick/sounds/465558/) | 68s | Rainbow mode exhale layer | "Cello drone" — sustained tone, edited for seamless loop feel. Comments call it "haunting" and "absolutely gorgeous." CC0. |
-| `nature-ocean.ogg` | [amholma / 376795](https://freesound.org/people/amholma/sounds/376795/) | 100s | Rainbow mode background | Quiet beach in Destin Florida. Small lapping waves, no birds, no voices. 48kHz/24-bit. CC0. |
+| `silver-water.m4a` | [Pixabay / capaholiczsfx — waterside-soft-lake-lite-waves-402561](https://pixabay.com/sound-effects/waterside-soft-lake-lite-waves-402561/) | 60s | **Silver — ambient bed** (loops session-wide) | Soft lake waves. Parasympathetic water vibe matches Silver's "daily reset" intention and the snowglobe-fluid identity. Pairs with the 110 Hz A2 + perfect-fifth synth drone for "snowglobe in water" feel. |
+| `gold-chimes.m4a` | [Pixabay / indigobunting — wind-chimes-with-wind-and-light-rain-171624](https://pixabay.com/sound-effects/wind-chimes-with-wind-and-light-rain-171624/) | 60s | **Gold — ambient bed** (loops session-wide) | Wind chimes + light rain + wind. Bell-like ringing reads as anchored presence — the "grounded focus" of box breathing. The wind + rain layers add grounded outdoor atmosphere. Replaces the singing-bowl pattern; the synth drone's gain envelope handles beat-marking that the bowl strikes used to do. |
+| `rainbow-strings.m4a` | [Pixabay / fronbondi_skegs — pad-gentle-and-soothing-strings-ambient-358649](https://pixabay.com/sound-effects/pad-gentle-and-soothing-strings-ambient-background-track-358649/) | 48s | **Rainbow — exhale layer** (triggered per exhale) | Soothing strings ambient pad. Replaces the original `cello-bow` plan — broader strings character matches Rainbow's "joy and opening" intention better than a single cello. Loops cleanly across 5-second exhales. |
 
-## How to install (one-time, ~5 minutes)
+## How to swap or update samples
 
-1. **Create a free Freesound account** at [freesound.org/home/register](https://freesound.org/home/register/) — required to download (CC0 allows redistribution; the login is just to track downloads).
+If you want to try alternates, the source MP3s live in `~/Downloads/`. To
+re-process or pick a different file:
 
-2. **Download the three WAV files** by clicking each link in the table above and tapping the download arrow on each page.
-
-3. **Convert + compress** to 96 kbps mono OGG (drops file size 90% with no audible loss for our use). Install `ffmpeg` once via Homebrew:
+1. Trim + convert to mono AAC at 96 kbps:
    ```bash
-   brew install ffmpeg
+   ffmpeg -y -i ~/Downloads/<source.mp3> \
+     -ss <START_SEC> -t <DURATION_SEC> \
+     -ac 1 -c:a aac -b:a 96k \
+     "public/audio/<NAME>.m4a"
    ```
-   Then from the directory where you saved the WAVs, run:
-   ```bash
-   # Singing bowl: trim to 8s (covers strike + tail), mono, 96kbps OGG
-   ffmpeg -i 193022__truthiswithin__tibetan-singing-bowl-struck.wav \
-     -t 8 -ac 1 -c:a libvorbis -b:a 96k singing-bowl.ogg
+   - `silver-water.m4a` was trimmed to 60s starting at 5s
+   - `gold-chimes.m4a` was trimmed to 60s starting at 10s
+   - `rainbow-strings.m4a` was trimmed to 48s starting at 2s
 
-   # Cello drone: trim to a clean 6s sustained section starting at 5s in
-   ffmpeg -i 465558__carrieedick__cello-drone.wav \
-     -ss 5 -t 6 -ac 1 -c:a libvorbis -b:a 96k cello-bow.ogg
+2. If you change a filename, update the `SAMPLE_URLS` registry at the top
+   of `src/audio/engine.ts` to match.
 
-   # Ocean: trim to 30s, mono, 96kbps OGG (loops seamlessly)
-   ffmpeg -i 376795__amholma__gentle-waves-quiet-beach.wav \
-     -t 30 -ac 1 -c:a libvorbis -b:a 96k nature-ocean.ogg
-   ```
+3. If you want a different mode mapping, update the `audio` palette block
+   for that mode in `src/modes.ts`. Available slots:
+   - `inhaleSampleId` — fires once at the start of each inhale phase
+   - `holdSampleId` — fires once at the start of each hold phase
+   - `exhaleSampleId` — fires once at the start of each exhale phase
+   - `ambientBedSampleId` — loops continuously through the session
 
-4. **Drop the three OGG files** into:
-   ```
-   public/audio/singing-bowl.ogg
-   public/audio/cello-bow.ogg
-   public/audio/nature-ocean.ogg
-   ```
-
-5. **Activate them in `src/audio/engine.ts`** by uncommenting the three lines in the `SAMPLE_URLS` registry:
-   ```ts
-   const SAMPLE_URLS: Record<string, string> = {
-     'singing-bowl': '/audio/singing-bowl.ogg',
-     'cello-bow':    '/audio/cello-bow.ogg',
-     'nature-ocean': '/audio/nature-ocean.ogg',
-   };
-   ```
-
-6. **Rebuild + sync**:
+4. Rebuild + sync:
    ```bash
    npm run build
    npx cap sync ios   # only if you've already run cap add ios
    ```
 
-Total bundled audio after compression: **~470 KB** for all three samples.
+## File format choice
 
-## Quality bar — why these beat what's currently on the App Store
+**AAC/M4A**, not OGG/Vorbis. Reason: OGG doesn't play on Safari/iOS WebKit,
+so the Capacitor wrapper would silently fail audio on iOS devices. AAC is
+universally supported (Safari, Chrome, Firefox, Edge, iOS, Android).
+Quality at 96 kbps mono is indistinguishable from the source for our
+ambient-pad use case.
 
-Most meditation apps in the $0.99–$2.99 tier use either:
-- **Synthesized "cello" samples** that sound 1990s (Headspace's free tier; many indie apps)
-- **Crystal singing bowls** which are pure sine tones — pretty but lifeless
-- **Generic ocean stock loops** with audible loop seams
+## Engine behavior
 
-What you're getting in Hush:
-- **Real bowed cello** with natural harmonic richness (not modeled)
-- **Real Tibetan bowl** with inharmonic partial decay — the complex "shimmery" quality crystal bowls lack
-- **Field-recorded ocean** at 48kHz/24-bit, gentle small-wave focus (no crashing surf), seamlessly loopable
-
-Combined with our research-grounded breath-synced drone (110 Hz A2 + perfect fifth, low-pass at 800 Hz), this puts Hush above the audio quality of Calm/Headspace's freemium experiences and on par with their premium tiers.
+- **Ambient bed** (Silver, Gold): starts when session goes active, fades in
+  over 1.5s, loops continuously, fades out over 1.5s when session ends.
+  Disposed on session reset to prevent memory leak across sessions.
+- **Per-phase trigger** (Rainbow strings on exhale): plays once at the
+  start of each exhale phase. Cuts the previous instance if still playing
+  so consecutive exhales don't pile up.
 
 ## License notes (for App Store privacy nutrition label)
 
-- All three samples are CC0 1.0 Universal (public domain dedication)
-- No attribution required, no use restrictions, no royalties
-- Freesound's CC0 license is recognized by the US Copyright Office and equivalent international bodies
-- For the App Store: **no licensing disclosures required** in your privacy nutrition label or app description
+All three samples: **Pixabay Content License**.
 
-If you want to credit the original sound creators in an "About" or "Credits" screen as a courtesy (not required), the names are: **Truthiswithin**, **carrieedick**, **amholma**.
+- Free for commercial and non-commercial use, no attribution required.
+- Standard restrictions don't apply to ambient/instrumental samples.
+- For the App Store: **no licensing disclosures required** in the privacy
+  nutrition label or app description.
+
+If you want to credit the original creators in an "About" or "Credits"
+screen as a courtesy (not required), the names are: **capaholiczsfx**
+(water), **indigobunting** (chimes), **fronbondi_skegs** (strings).
+
+## What's not yet wired
+
+- **Closing-quote narration** — Web Speech API scaffold exists in
+  [src/audio/narration.ts](src/audio/narration.ts), opt-in via settings.
+  Bespoke voice recordings (your voice, rainbow poems) replace the synth
+  voice when added.
+- **Rainbow closing poems** — `closingNarrationIds` in `modes.ts` is empty;
+  populates when you record 5–7 short poems (10–25s each).

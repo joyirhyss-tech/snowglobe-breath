@@ -1,26 +1,25 @@
-// Hush audio engine. Generates a breath-synced drone from scratch via
-// Tone.js, plus triggers per-phase samples (singing bowl, cello, nature
-// ambience) loaded on demand. Designed to run from a single user gesture
-// (Apple's autoplay rule) and shut down cleanly when the session ends.
+// Hush audio engine. Streams the per-mode bed/sample audio through a shared
+// reverb tail. Designed to run from a single user gesture (Apple's autoplay
+// rule) and shut down cleanly when the session ends.
 //
-// Research-grounded defaults (do not change without evidence):
-// - Drone fundamental ~110 Hz (A2) + perfect fifth — predictable harmonic
-//   richness without muddying phone speakers (Koelsch 2014; Trappe 2012)
-// - Slow attack ~800ms — avoids transients that trigger startle (Grillon 2008)
-// - Low-pass ~800 Hz — keeps frequencies below the "alerting" 4kHz band
-// - Inhale gain swell + exhale gain decay — non-verbal pacing cue, breath-
-//   entrainment effect (Apple Breathe pattern; Vickhoff 2013)
-// - Reverb ~6s decay — spaciousness without phrase muddiness
+// History note: this engine previously generated a research-grounded synth
+// drone (110 Hz A2 + perfect fifth, low-pass 800 Hz, breath-synced gain
+// envelope). The drone was removed 2026-04-27 at user direction — they
+// preferred the bare bed/sample audio without a synthesized layer. The
+// AudioPalette type still has drone fields; they are simply unused.
 
 import * as Tone from 'tone';
 import type { BreathLabel, ModeSpec } from '../modes';
 
-// Sample registry — id → URL. Empty until samples are dropped into /public.
-// Phase 1 ships drone-only; samples plug in after Pixabay selection.
+// Sample registry — id → URL. AAC/M4A for universal browser + iOS Safari
+// support (OGG/Vorbis is Safari-incompatible). Mono, 96 kbps.
 const SAMPLE_URLS: Record<string, string> = {
-  // 'singing-bowl': '/audio/singing-bowl.ogg',
-  // 'cello-bow':    '/audio/cello-bow.ogg',
-  // 'nature-ocean': '/audio/nature-ocean.ogg',
+  // Mode-specific ambient beds (loop session-wide, fade in/out).
+  // All three files have a 1.5s baked-in fade-in and a 2s fade-out, so
+  // playback edges are smooth even before the gain envelope rides on top.
+  'silver-water':   '/audio/silver-bed.m4a',     // soft lake waves: parasympathetic bed
+  'gold-chimes':    '/audio/gold-bed.m4a',       // wind chimes + light rain: grounded focus bed
+  'rainbow-handpan':'/audio/rainbow-bed.m4a',    // handpan music (kalsstockmedia): joy/opening bed
 };
 
 // Module-level singleton. Exactly one engine per page load — Tone's Context
@@ -28,15 +27,22 @@ const SAMPLE_URLS: Record<string, string> = {
 let engine: HushEngine | null = null;
 
 class HushEngine {
-  private osc1: Tone.Oscillator | null = null;
-  private osc2: Tone.Oscillator | null = null;
-  private osc3: Tone.Oscillator | null = null;
-  private filter: Tone.Filter | null = null;
-  private droneGain: Tone.Gain | null = null;
   private reverb: Tone.Reverb | null = null;
   private masterGain: Tone.Gain | null = null;
-  private samplePlayers: Map<string, Tone.Player> = new Map();
-  private samplesLoading: Set<string> = new Set();
+  // Each sample id maps to its own player + gain node so cross-mode beds
+  // can fade independently without sharing buffers (which Tone.js does
+  // unreliably when you pass a buffer reference to a new Player).
+  private samplePlayers: Map<string, { player: Tone.Player; gain: Tone.Gain }> = new Map();
+  // Map of id → in-flight load promise. Crucial: when two callers want the
+  // same sample concurrently (e.g., setMode preloads it AND startAmbientBed
+  // awaits it), the second caller must AWAIT the existing promise — not
+  // skip past it and try to use a player that hasn't finished loading.
+  private samplesLoading: Map<string, Promise<void>> = new Map();
+  // Ambient bed — a long looping sample that runs through the whole session
+  // (silver: water, gold: chimes). Distinct from per-phase triggered samples.
+  // Just tracks which sample id is currently the active bed; the actual
+  // player/gain live in samplePlayers so we don't lose buffers between sessions.
+  private bedActiveId: string | null = null;
 
   private currentMode: ModeSpec | null = null;
   private currentLabel: BreathLabel | null = null;
@@ -57,42 +63,72 @@ class HushEngine {
   private buildSignalChain(): void {
     // Master gain (mute toggle target).
     this.masterGain = new Tone.Gain(1).toDestination();
-    // Reverb gives synthesized drone the spaciousness it needs to read as calming.
+    // Reverb gives the bed/sample audio spaciousness so it doesn't read as
+    // dry/clinical. Wet 0.55 mixes 55% reverberated, 45% direct.
     this.reverb = new Tone.Reverb({ decay: 6, wet: 0.55 });
     this.reverb.connect(this.masterGain);
-    // Low-pass filter rolls off "alerting" high frequencies above ~800 Hz.
-    this.filter = new Tone.Filter({ type: 'lowpass', frequency: 800, Q: 1.2 });
-    this.filter.connect(this.reverb);
-    // Drone gain (breath-synced envelope target). Starts at 0 (silent).
-    this.droneGain = new Tone.Gain(0);
-    this.droneGain.connect(this.filter);
-    // Three sine oscillators: fundamental, slightly detuned twin (for warmth),
-    // perfect fifth above. All routed through droneGain → filter → reverb → master.
-    this.osc1 = new Tone.Oscillator({ frequency: 110, type: 'sine' });
-    this.osc2 = new Tone.Oscillator({ frequency: 110.3, type: 'sine' }); // detune
-    this.osc3 = new Tone.Oscillator({ frequency: 165, type: 'sine' });    // 5th
-    [this.osc1, this.osc2, this.osc3].forEach((o) => {
-      o.connect(this.droneGain!);
-      o.start();
-    });
   }
 
   /**
-   * Apply a mode's audio palette. Updates oscillator frequencies and stores
-   * the palette for use by phase-tick callbacks. Safe to call repeatedly.
+   * Apply a mode's audio palette. Pre-warms the samples this mode wants to
+   * trigger or loop as a bed. Drone fields on the palette are ignored.
    */
   setMode(mode: ModeSpec): void {
     this.currentMode = mode;
     if (!this.isStarted) return;
     const p = mode.audio;
-    if (this.osc1) this.osc1.frequency.value = p.droneFundamentalHz;
-    if (this.osc2) this.osc2.frequency.value = p.droneFundamentalHz + 0.3;
-    if (this.osc3) this.osc3.frequency.value = p.droneFundamentalHz * p.droneIntervalRatio;
-    if (this.filter) this.filter.frequency.value = p.droneFilterHz;
-    // Pre-warm any samples this mode wants to trigger.
-    [p.inhaleSampleId, p.holdSampleId, p.exhaleSampleId].forEach((id) => {
+    [p.inhaleSampleId, p.holdSampleId, p.exhaleSampleId, p.ambientBedSampleId].forEach((id) => {
       if (id) this.preloadSample(id);
     });
+  }
+
+  /**
+   * Start the per-mode ambient bed — plays the loaded sample once
+   * (loop=false) for that sample id and fades its gain in.
+   *
+   * Bed audio files are 70 seconds long while the session+ending window
+   * is 72s. The engine's gain fadeOut completes at t=69s (silent for the
+   * remaining ~1s), and the audio file ends naturally at t=70s — no loop,
+   * no restart artifact at the session boundary. (Earlier 60s files with
+   * loop=true caused an audible "stops then starts" right before the
+   * closing quote because the loop boundary fell exactly at the session
+   * end with the baked-in fade-in restarting from silence.)
+   */
+  async startAmbientBed(id: string, fadeInMs: number = 1500): Promise<void> {
+    if (!this.isStarted) return;
+    if (this.bedActiveId === id) return; // already on
+    // Stop the previous bed (if any) before we switch ids.
+    if (this.bedActiveId && this.bedActiveId !== id) {
+      this.stopAmbientBed(fadeInMs);
+    }
+    // Lazy-load if not yet preloaded — this is what makes per-mode beds
+    // genuinely distinct: each id resolves to its own URL via SAMPLE_URLS.
+    await this.preloadSample(id);
+    const entry = this.samplePlayers.get(id);
+    if (!entry) return; // load failed, silently no-op
+    entry.player.loop = false;     // play through once; file outlasts session window
+    if (entry.player.state !== 'started') entry.player.start();
+    entry.gain.gain.cancelScheduledValues(Tone.now());
+    entry.gain.gain.value = 0;
+    entry.gain.gain.linearRampTo(0.7, fadeInMs / 1000);
+    this.bedActiveId = id;
+  }
+
+  /**
+   * Fade and stop the ambient bed. Keeps the loaded player around so the
+   * next session can re-use it without re-fetching the audio file.
+   */
+  stopAmbientBed(fadeOutMs: number = 1500): void {
+    if (!this.bedActiveId) return;
+    const id = this.bedActiveId;
+    const entry = this.samplePlayers.get(id);
+    this.bedActiveId = null;
+    if (!entry) return;
+    entry.gain.gain.cancelScheduledValues(Tone.now());
+    entry.gain.gain.linearRampTo(0, fadeOutMs / 1000);
+    setTimeout(() => {
+      try { entry.player.stop(); entry.player.loop = false; } catch {}
+    }, fadeOutMs + 100);
   }
 
   /**
@@ -105,38 +141,23 @@ class HushEngine {
   }
 
   /**
-   * Called every time the breath phase changes. Drives:
-   *   - Drone gain envelope (rises on inhale, falls on exhale, holds on hold)
-   *   - Drone filter cutoff modulation (opens on inhale)
-   *   - Sample triggers (per-phase optional samples from the mode palette)
-   *
-   * `phaseDurationMs` is the length of the new phase; we ramp gain/filter
-   * across that exact window so the swell completes when the phase ends.
+   * Called every time the breath phase changes. Triggers per-phase samples
+   * (e.g., Rainbow's strings pad on exhale). With the synth drone removed,
+   * this is the only thing it does.
    */
   onPhaseChange(label: BreathLabel, phaseDurationMs: number): void {
-    if (!this.isStarted || !this.currentMode || !this.droneGain || !this.filter) return;
+    if (!this.isStarted || !this.currentMode) return;
     if (this.currentLabel === label) return; // no-op on identical phase
     this.currentLabel = label;
+    void phaseDurationMs;     // retained on signature for future drone return; unused now
     const palette = this.currentMode.audio;
-    const seconds = phaseDurationMs / 1000;
-    const ctxNow = Tone.now();
 
-    // Gain envelope per phase.
-    if (label === 'inhale') {
-      this.droneGain.gain.cancelScheduledValues(ctxNow);
-      this.droneGain.gain.linearRampTo(palette.droneInhaleGain, seconds);
-      this.filter.frequency.cancelScheduledValues(ctxNow);
-      this.filter.frequency.linearRampTo(palette.droneFilterHz * 1.5, seconds);
-      if (palette.inhaleSampleId) this.triggerSample(palette.inhaleSampleId);
-    } else if (label === 'exhale') {
-      this.droneGain.gain.cancelScheduledValues(ctxNow);
-      this.droneGain.gain.linearRampTo(palette.droneExhaleGain, seconds);
-      this.filter.frequency.cancelScheduledValues(ctxNow);
-      this.filter.frequency.linearRampTo(palette.droneFilterHz, seconds);
-      if (palette.exhaleSampleId) this.triggerSample(palette.exhaleSampleId);
-    } else if (label === 'hold') {
-      // No gain change during hold — sit at whatever the prior phase ended on.
-      if (palette.holdSampleId) this.triggerSample(palette.holdSampleId);
+    if (label === 'inhale' && palette.inhaleSampleId) {
+      this.triggerSample(palette.inhaleSampleId);
+    } else if (label === 'exhale' && palette.exhaleSampleId) {
+      this.triggerSample(palette.exhaleSampleId);
+    } else if (label === 'hold' && palette.holdSampleId) {
+      this.triggerSample(palette.holdSampleId);
     }
   }
 
@@ -145,39 +166,68 @@ class HushEngine {
    * winds down gracefully alongside the closing quote.
    */
   fadeOut(fadeMs: number): void {
-    if (!this.droneGain || !this.masterGain) return;
+    if (!this.masterGain) return;
     const seconds = fadeMs / 1000;
-    this.droneGain.gain.cancelScheduledValues(Tone.now());
-    this.droneGain.gain.linearRampTo(0, seconds);
+    if (this.bedActiveId) {
+      const entry = this.samplePlayers.get(this.bedActiveId);
+      if (entry) {
+        entry.gain.gain.cancelScheduledValues(Tone.now());
+        entry.gain.gain.linearRampTo(0, seconds);
+      }
+    }
+    // Also taper any per-phase trigger gain that may still be ringing out.
+    this.samplePlayers.forEach((entry, id) => {
+      if (id === this.bedActiveId) return; // already handled above
+      entry.gain.gain.cancelScheduledValues(Tone.now());
+      entry.gain.gain.linearRampTo(0, seconds);
+    });
   }
 
   // ── Sample handling ──
-  private async preloadSample(id: string): Promise<void> {
-    if (this.samplePlayers.has(id) || this.samplesLoading.has(id)) return;
+  private preloadSample(id: string): Promise<void> {
+    if (this.samplePlayers.has(id)) return Promise.resolve();
+    // If a load is already in flight for this id, return THAT promise so
+    // the caller awaits the same completion. This is the load-bearing fix
+    // for a race where setMode kicked off preloadSample and startAmbientBed
+    // immediately followed up — the old code returned an instantly-resolved
+    // promise on the second call, letting startAmbientBed proceed before
+    // the player was ready, and the bed never started.
+    const existing = this.samplesLoading.get(id);
+    if (existing) return existing;
     const url = SAMPLE_URLS[id];
-    if (!url) return; // sample not yet supplied; engine continues drone-only
-    this.samplesLoading.add(id);
-    try {
-      const player = new Tone.Player({ url, autostart: false });
-      // Each sample gets its own gain so we can mix per-instrument levels later.
-      const sampleGain = new Tone.Gain(0.65);
-      player.connect(sampleGain);
-      sampleGain.connect(this.reverb!);
-      await Tone.loaded(); // wait for buffer to load
-      this.samplePlayers.set(id, player);
-    } catch (err) {
-      // eslint-disable-next-line no-console
-      console.warn(`[Hush audio] sample "${id}" failed to load`, err);
-    } finally {
-      this.samplesLoading.delete(id);
-    }
+    if (!url) return Promise.resolve(); // sample not yet supplied
+    const loadPromise = (async () => {
+      try {
+        const player = new Tone.Player({ url, autostart: false });
+        // Each sample owns its own gain so beds and per-phase triggers can
+        // ramp independently. Starts at 0; consumers ramp up on use.
+        const gain = new Tone.Gain(0);
+        player.connect(gain);
+        gain.connect(this.reverb!);
+        await Tone.loaded(); // wait for buffer to load
+        this.samplePlayers.set(id, { player, gain });
+      } catch (err) {
+        // eslint-disable-next-line no-console
+        console.warn(`[Hush audio] sample "${id}" failed to load`, err);
+      } finally {
+        this.samplesLoading.delete(id);
+      }
+    })();
+    this.samplesLoading.set(id, loadPromise);
+    return loadPromise;
   }
 
   private triggerSample(id: string): void {
-    const player = this.samplePlayers.get(id);
-    if (!player) return;
-    if (player.state === 'started') player.stop();
-    player.start();
+    const entry = this.samplePlayers.get(id);
+    if (!entry) return;
+    // Per-phase trigger gain (rainbow strings on exhale): pop to 0.85 each
+    // fire (was 0.65, bumped now that the drone no longer underlays).
+    // Cancel any in-flight ramp first (e.g., from a prior bed use).
+    entry.gain.gain.cancelScheduledValues(Tone.now());
+    entry.gain.gain.value = 0.85;
+    if (entry.player.state === 'started') entry.player.stop();
+    entry.player.loop = false;
+    entry.player.start();
   }
 
   /** Audio context is unlocked. */
@@ -194,4 +244,37 @@ class HushEngine {
 export function getEngine(): HushEngine {
   if (!engine) engine = new HushEngine();
   return engine;
+}
+
+// Debug exposure — lets us inspect engine state and call methods directly
+// from the browser console or Playwright eval.
+if (typeof window !== 'undefined') {
+  (window as unknown as { HUSH_ENGINE: () => HushEngine | null }).HUSH_ENGINE = () => engine;
+  (window as unknown as { HUSH_DEBUG: () => unknown }).HUSH_DEBUG = () => {
+    const e = engine as unknown as {
+      isStarted: boolean;
+      bedActiveId: string | null;
+      currentMode: { id: string } | null;
+      currentLabel: string | null;
+      masterGain: { gain: { value: number } } | null;
+      samplePlayers: Map<string, { player: { state: string; loop: boolean }; gain: { gain: { value: number } } }>;
+    } | null;
+    if (!e) return { engine: 'not-created' };
+    const samples: Record<string, { state: string; loop: boolean; gain: number }> = {};
+    e.samplePlayers.forEach((entry, id) => {
+      samples[id] = {
+        state: entry.player.state,
+        loop: entry.player.loop,
+        gain: entry.gain.gain.value,
+      };
+    });
+    return {
+      isStarted: e.isStarted,
+      bedActiveId: e.bedActiveId,
+      currentMode: e.currentMode?.id,
+      currentLabel: e.currentLabel,
+      masterGain: e.masterGain?.gain.value,
+      samples,
+    };
+  };
 }

@@ -1,7 +1,9 @@
 import { useState } from 'react';
 import { MODE_LIST, MODES, type ModeId } from '../modes';
+import { MODE_INFO, type ModeInfo } from '../modeInfo';
 import { setLang, useLang, t, SUPPORTED_LANGS, LANG_NAMES, getLang, type StringKey } from '../i18n';
 import type { DisplayMode } from '../displayPref';
+import { isHealthKitPossible } from '../platform/healthkit';
 
 // Settings panel for v2. Reachable via a faint gear icon in the top-right.
 // Sections are collapsible — only the header is visible by default, showing
@@ -12,11 +14,15 @@ type Props = {
   onChangeMode: (id: ModeId) => void;
   audioEnabled: boolean;
   onChangeAudioEnabled: (enabled: boolean) => void;
+  narrationEnabled: boolean;
+  onChangeNarrationEnabled: (enabled: boolean) => void;
+  healthKitEnabled: boolean;
+  onChangeHealthKitEnabled: (enabled: boolean) => void;
   displayMode: DisplayMode;
   onChangeDisplayMode: (mode: DisplayMode) => void;
 };
 
-type ExpandedSection = 'mode' | 'display' | 'audio' | 'language' | null;
+type ExpandedSection = 'mode' | 'display' | 'audio' | 'narration' | 'health' | 'language' | 'about' | null;
 
 const DISPLAY_OPTIONS: Array<{ id: DisplayMode; key: StringKey }> = [
   { id: 'words',     key: 'displayWords' },
@@ -29,12 +35,36 @@ export function ThemePicker({
   onChangeMode,
   audioEnabled,
   onChangeAudioEnabled,
+  narrationEnabled,
+  onChangeNarrationEnabled,
+  healthKitEnabled,
+  onChangeHealthKitEnabled,
   displayMode,
   onChangeDisplayMode,
 }: Props) {
+  // Only show the Apple Health section on iOS. On web/Android the toggle
+  // would be a dead switch (HealthKit is iOS-only) — pure clutter.
+  const showHealthSection = isHealthKitPossible();
   const lang = useLang(); // re-render on language change
   const [open, setOpen] = useState(false);
   const [expanded, setExpanded] = useState<ExpandedSection>(null);
+  // Which mode currently has its info expanded (only one at a time, like an
+  // accordion within the mode section).
+  const [infoOpenFor, setInfoOpenFor] = useState<ModeId | null>(null);
+
+  // Tap handler for the in-settings Roo entry: closes the settings panel
+  // first (so the Roo modal isn't competing with the settings backdrop)
+  // and then opens the Roo modal.
+  const openRoo = () => {
+    setOpen(false);
+    setExpanded(null);
+    // Tiny delay so the settings overlay finishes its tap-out animation
+    // before Roo's modal slides in.
+    setTimeout(() => {
+      const w = window as Window & { RooReporter?: { open: () => void } };
+      w.RooReporter?.open();
+    }, 60);
+  };
 
   const currentMode = MODES[currentModeId];
 
@@ -67,10 +97,23 @@ export function ThemePicker({
 
       {open && (
         <div
+          // role="dialog" + aria-modal lets VoiceOver users know they're
+          // inside a modal panel; the rest of the app is paused. Backdrop
+          // tap-to-close is preserved; keyboard users can press Escape too.
+          role="dialog"
+          aria-modal="true"
+          aria-label={t('settings')}
           onClick={(e) => {
             e.stopPropagation();
             setOpen(false);
             setExpanded(null);
+          }}
+          onKeyDown={(e) => {
+            if (e.key === 'Escape') {
+              e.stopPropagation();
+              setOpen(false);
+              setExpanded(null);
+            }
           }}
           style={{
             position: 'fixed',
@@ -105,12 +148,15 @@ export function ThemePicker({
               onToggle={() => setExpanded((e) => e === 'mode' ? null : 'mode')}
             >
               {MODE_LIST.map((m) => (
-                <Choice
+                <ModeChoice
                   key={m.id}
                   selected={currentModeId === m.id}
-                  onClick={() => onChangeMode(m.id)}
+                  onSelect={() => onChangeMode(m.id)}
                   title={t(m.labelKey)}
                   subtitle={t(m.intentKey)}
+                  info={MODE_INFO[m.id]}
+                  infoOpen={infoOpenFor === m.id}
+                  onInfoToggle={() => setInfoOpenFor((c) => (c === m.id ? null : m.id))}
                 />
               ))}
             </CollapsibleSection>
@@ -150,6 +196,46 @@ export function ThemePicker({
             </CollapsibleSection>
 
             <CollapsibleSection
+              label={t('narration')}
+              currentValue={narrationEnabled ? t('audioOn') : t('audioOff')}
+              isOpen={expanded === 'narration'}
+              onToggle={() => setExpanded((e) => e === 'narration' ? null : 'narration')}
+            >
+              <Choice
+                selected={narrationEnabled}
+                onClick={() => onChangeNarrationEnabled(true)}
+                title={t('audioOn')}
+                subtitle={t('narrationDescription')}
+              />
+              <Choice
+                selected={!narrationEnabled}
+                onClick={() => onChangeNarrationEnabled(false)}
+                title={t('audioOff')}
+              />
+            </CollapsibleSection>
+
+            {showHealthSection && (
+              <CollapsibleSection
+                label={t('appleHealth')}
+                currentValue={healthKitEnabled ? t('audioOn') : t('audioOff')}
+                isOpen={expanded === 'health'}
+                onToggle={() => setExpanded((e) => e === 'health' ? null : 'health')}
+              >
+                <Choice
+                  selected={healthKitEnabled}
+                  onClick={() => onChangeHealthKitEnabled(true)}
+                  title={t('audioOn')}
+                  subtitle={t('appleHealthDescription')}
+                />
+                <Choice
+                  selected={!healthKitEnabled}
+                  onClick={() => onChangeHealthKitEnabled(false)}
+                  title={t('audioOff')}
+                />
+              </CollapsibleSection>
+            )}
+
+            <CollapsibleSection
               label={t('language')}
               currentValue={LANG_NAMES[lang]}
               isOpen={expanded === 'language'}
@@ -164,10 +250,155 @@ export function ThemePicker({
                 />
               ))}
             </CollapsibleSection>
+
+            {/* About — collapsible, last in panel. Consolidates the prior
+                separate "Feedback" row with mission, contact, privacy. */}
+            <CollapsibleSection
+              label={t('about')}
+              currentValue="TPC | AEQ"
+              isOpen={expanded === 'about'}
+              onToggle={() => setExpanded((e) => e === 'about' ? null : 'about')}
+            >
+              <AboutPanel onTellRoo={openRoo} />
+            </CollapsibleSection>
           </div>
         </div>
       )}
     </>
+  );
+}
+
+// Inline content shown when "About" is expanded. Mission, contact, privacy,
+// founder info, and a tap-to-feedback button. Matches the visual rhythm of
+// Choice/info panels — left-edge accent, soft padding, restrained type.
+function AboutPanel({ onTellRoo }: { onTellRoo: () => void }) {
+  const [founderOpen, setFounderOpen] = useState(false);
+  return (
+    <div
+      style={{
+        margin: '4px 12px 10px 16px',
+        padding: '10px 14px',
+        borderLeft: '1px solid rgba(255,255,255,0.18)',
+        fontSize: '0.82rem',
+        lineHeight: 1.55,
+        color: 'rgba(244,247,252,0.82)',
+        fontWeight: 300,
+      }}
+    >
+      <div style={{ marginBottom: 10 }}>{t('aboutMission')}</div>
+      <div style={{ marginBottom: 10 }}>
+        <a
+          href="mailto:info@aidedeq.org"
+          style={{
+            color: 'rgba(196,212,240,0.88)',
+            textDecoration: 'none',
+            borderBottom: '1px dotted rgba(196,212,240,0.45)',
+            fontSize: '0.78rem',
+          }}
+        >
+          info@aidedeq.org →
+        </a>
+      </div>
+      <div style={{ marginBottom: 12, fontSize: '0.76rem', opacity: 0.78 }}>
+        {t('aboutPrivacy')}
+      </div>
+
+      {/* Founder line — small (i) toggle reveals a photo + bio inline. */}
+      <div
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          marginBottom: founderOpen ? 8 : 12,
+          fontSize: '0.78rem',
+          opacity: 0.86,
+        }}
+      >
+        <span>{t('madeBy')} <strong style={{ fontWeight: 500 }}>JoYi Rhyss</strong></span>
+        <button
+          aria-label={t('aboutFounderLabel')}
+          aria-expanded={founderOpen}
+          onClick={() => setFounderOpen((v) => !v)}
+          style={{
+            background: 'transparent',
+            border: '1px solid rgba(255,255,255,0.25)',
+            borderRadius: '50%',
+            width: 22,
+            height: 22,
+            padding: 0,
+            color: 'rgba(255,255,255,0.7)',
+            fontSize: '0.72rem',
+            fontFamily: 'Georgia, serif',
+            fontStyle: 'italic',
+            fontWeight: 400,
+            cursor: 'pointer',
+            opacity: founderOpen ? 0.95 : 0.6,
+            transition: 'opacity 160ms ease',
+          }}
+        >
+          i
+        </button>
+      </div>
+      {founderOpen && (
+        <div
+          style={{
+            display: 'flex',
+            gap: 12,
+            alignItems: 'center',
+            padding: '10px 0 14px',
+            fontSize: '0.78rem',
+            lineHeight: 1.5,
+            opacity: 0.86,
+          }}
+        >
+          <img
+            src="/founder.jpg"
+            alt="JoYi Rhyss, founder of TPC | AEQ"
+            width={64}
+            height={80}
+            style={{
+              width: 64,
+              height: 80,
+              borderRadius: 6,
+              objectFit: 'cover',
+              flexShrink: 0,
+              boxShadow: '0 2px 8px rgba(0,0,0,0.4)',
+            }}
+          />
+          <span>{t('founderBio')}</span>
+        </div>
+      )}
+
+      <div
+        role="button"
+        tabIndex={0}
+        onClick={onTellRoo}
+        onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') onTellRoo(); }}
+        style={{
+          display: 'inline-flex',
+          alignItems: 'center',
+          gap: 8,
+          padding: '8px 12px',
+          background: 'rgba(255,255,255,0.04)',
+          border: '1px solid rgba(255,255,255,0.18)',
+          borderRadius: 6,
+          fontSize: '0.82rem',
+          cursor: 'pointer',
+          userSelect: 'none',
+          fontWeight: 300,
+        }}
+      >
+        <img
+          src="/roo/roo-btn.png"
+          alt=""
+          aria-hidden="true"
+          width={20}
+          height={20}
+          style={{ borderRadius: 3, opacity: 0.92 }}
+        />
+        {t('tellRoo')}
+      </div>
+    </div>
   );
 }
 
@@ -252,6 +483,134 @@ function Chevron({ open }: { open: boolean }) {
     >
       <path d="M2.5 4 L5.5 7 L8.5 4" strokeLinecap="round" strokeLinejoin="round" />
     </svg>
+  );
+}
+
+// A mode choice — like Choice but with a small (i) info button on the right
+// that toggles an inline panel below explaining the breathing technique and
+// linking to research. Tapping anywhere else still selects the mode.
+function ModeChoice({
+  selected,
+  onSelect,
+  title,
+  subtitle,
+  info,
+  infoOpen,
+  onInfoToggle,
+}: {
+  selected: boolean;
+  onSelect: () => void;
+  title: string;
+  subtitle?: string;
+  info: ModeInfo;
+  infoOpen: boolean;
+  onInfoToggle: () => void;
+}) {
+  return (
+    <div>
+      <div
+        role="button"
+        tabIndex={0}
+        onClick={onSelect}
+        onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') onSelect(); }}
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          padding: '12px 12px',
+          background: selected ? 'rgba(255,255,255,0.05)' : 'transparent',
+          borderLeft: selected ? '2px solid rgba(255,255,255,0.7)' : '2px solid transparent',
+          borderRadius: 6,
+          fontSize: '0.95rem',
+          color: '#f4f7fc',
+          cursor: 'pointer',
+          userSelect: 'none',
+          transition: 'background 180ms ease',
+        }}
+      >
+        <span>
+          <span style={{ fontWeight: selected ? 400 : 300 }}>{title}</span>
+          {subtitle && (
+            <span style={{ display: 'block', fontSize: '0.78rem', opacity: 0.55, marginTop: 2, fontWeight: 300 }}>
+              {subtitle}
+            </span>
+          )}
+        </span>
+        <span style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          {selected && (
+            <span style={{ fontSize: '0.85rem', opacity: 0.75, fontWeight: 300 }}>✓</span>
+          )}
+          <button
+            aria-label={t('aboutTechnique')}
+            aria-expanded={infoOpen}
+            onClick={(e) => { e.stopPropagation(); onInfoToggle(); }}
+            style={{
+              background: 'transparent',
+              border: '1px solid rgba(255,255,255,0.25)',
+              borderRadius: '50%',
+              width: 22,
+              height: 22,
+              padding: 0,
+              color: 'rgba(255,255,255,0.7)',
+              fontSize: '0.72rem',
+              fontFamily: 'Georgia, serif',
+              fontStyle: 'italic',
+              fontWeight: 400,
+              cursor: 'pointer',
+              opacity: infoOpen ? 0.95 : 0.55,
+              transition: 'opacity 160ms ease, background 160ms ease',
+            }}
+          >
+            i
+          </button>
+        </span>
+      </div>
+      {infoOpen && <ModeInfoPanel info={info} />}
+    </div>
+  );
+}
+
+// Inline info panel that drops below a ModeChoice when the (i) is tapped.
+// Keeps the visual weight light: no card border, just left-edge accent and
+// generous line-height. Links open in a new tab.
+function ModeInfoPanel({ info }: { info: ModeInfo }) {
+  return (
+    <div
+      style={{
+        margin: '4px 12px 10px 16px',
+        padding: '10px 14px',
+        borderLeft: '1px solid rgba(255,255,255,0.18)',
+        fontSize: '0.82rem',
+        lineHeight: 1.55,
+        color: 'rgba(244,247,252,0.82)',
+        fontWeight: 300,
+      }}
+    >
+      <div style={{ fontStyle: 'italic', opacity: 0.9, marginBottom: 6 }}>
+        {info.technique}
+      </div>
+      <div style={{ marginBottom: 10 }}>{info.description}</div>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+        {info.research.map((r) => (
+          <a
+            key={r.url}
+            href={r.url}
+            target="_blank"
+            rel="noopener noreferrer"
+            style={{
+              color: 'rgba(196,212,240,0.88)',
+              textDecoration: 'none',
+              borderBottom: '1px dotted rgba(196,212,240,0.45)',
+              padding: '2px 0',
+              alignSelf: 'flex-start',
+              fontSize: '0.78rem',
+            }}
+          >
+            {r.label} →
+          </a>
+        ))}
+      </div>
+    </div>
   );
 }
 

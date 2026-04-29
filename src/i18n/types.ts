@@ -39,6 +39,23 @@ export type StringKey =
   | 'display'
   | 'displayWords'
   | 'displayCountdown'
-  | 'displaySilent';
+  | 'displaySilent'
+  // Narration (closing-quote spoken aloud) section
+  | 'narration'
+  | 'narrationDescription'
+  // Apple Health (Mindful Minutes write) section
+  | 'appleHealth'
+  | 'appleHealthDescription'
+  // About section
+  | 'about'
+  | 'aboutMission'
+  | 'aboutPrivacy'
+  | 'madeBy'
+  | 'aboutFounderLabel'    // (i) button accessibility label
+  | 'founderBio'
+  // Feedback (Roo) entry inside About
+  | 'tellRoo'
+  // Mode info icon accessibility label
+  | 'aboutTechnique';
 
 export type Translations = Record<StringKey, string>;
